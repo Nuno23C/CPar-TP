@@ -46,17 +46,24 @@ double L;
 
 //  Initial Temperature in Natural Units
 double Tinit;  //2;
+
 //  Vectors!
-//
 const int MAXPART=5001;
 //  Position
-double r[MAXPART][3];
+double *r;
 //  Velocity
-double v[MAXPART][3];
+double *v;
 //  Acceleration
-double a[MAXPART][3];
+double *a;
 //  Force
-double F[MAXPART][3];
+double *F;
+
+void alloc() {
+    r = (double *) malloc(MAXPART*3*sizeof(double));
+    v = (double *) malloc(MAXPART*3*sizeof(double));
+    a = (double *) malloc(MAXPART*3*sizeof(double));
+    F = (double *) malloc(MAXPART*3*sizeof(double));
+}
 
 // atom type
 char atype[10];
@@ -260,6 +267,8 @@ int main()
 
     }
 
+    alloc();
+
     //  Put all the atoms in simple crystal lattice and give them random velocities
     //  that corresponds to the initial temperature we have specified
     initialize();
@@ -379,15 +388,32 @@ void initialize() {
         for (j=0; j<n; j++) {
             for (k=0; k<n; k++) {
                 if (p<N) {
-
-                    r[p][0] = (i + 0.5)*pos;
-                    r[p][1] = (j + 0.5)*pos;
-                    r[p][2] = (k + 0.5)*pos;
+                    r[p*3+0] = (i + 0.5)*pos; // ALTERADO
+                    r[p*3+1] = (j + 0.5)*pos;
+                    r[p*3+2] = (k + 0.5)*pos;
                 }
                 p++;
             }
         }
     }
+
+    // for (i=0; i<n; i++) {
+    //     double ri = (i + 0.5)*pos;
+    //     for (j=0; j<n; j++) {
+    //         double rj = (j + 0.5)*pos;
+    //         for (k=0; k<n; k++) {
+    //             if (p<N) {
+    //                 double rk = (k + 0.5)*pos;
+
+    //                 r[p*3+0] = ri;
+    //                 r[p*3+1] = rj;
+    //                 r[p*3+2] = rk;
+    //             }
+    //             p++;
+    //         }
+    //     }
+    // }
+
 
     // Call function to initialize velocities
     initializeVelocities();
@@ -419,7 +445,6 @@ double MeanSquaredVelocity() {
     double v2;
 
     for (int i=0; i<N; i++) {
-
         vx2 = vx2 + v[i][0]*v[i][0];
         vy2 = vy2 + v[i][1]*v[i][1];
         vz2 = vz2 + v[i][2]*v[i][2];
