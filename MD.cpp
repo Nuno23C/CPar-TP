@@ -389,13 +389,15 @@ void initialize() {
             for (k=0; k<n; k++) {
                 if (p<N) {
                     r[p*3+0] = (i + 0.5)*pos; // ALTERADO
-                    r[p*3+1] = (j + 0.5)*pos;
-                    r[p*3+2] = (k + 0.5)*pos;
+                    r[p*3+1] = (j + 0.5)*pos; // ALTERADO
+                    r[p*3+2] = (k + 0.5)*pos; // ALTERADO
                 }
                 p++;
             }
         }
     }
+
+    // VER SE MELHORA COM A SEGUINTE MANEIRA
 
     // for (i=0; i<n; i++) {
     //     double ri = (i + 0.5)*pos;
@@ -430,54 +432,72 @@ void initialize() {
      printf("  %6.3e  %6.3e  %6.3e\n",v[i][0],v[i][1],v[i][2]);
      }
      */
-
-
-
 }
 
 
 //  Function to calculate the averaged velocity squared
 double MeanSquaredVelocity() {
-
     double vx2 = 0;
     double vy2 = 0;
     double vz2 = 0;
     double v2;
 
     for (int i=0; i<N; i++) {
-        vx2 = vx2 + v[i][0]*v[i][0];
-        vy2 = vy2 + v[i][1]*v[i][1];
-        vz2 = vz2 + v[i][2]*v[i][2];
-
+        vx2 = vx2 + v[i+0]*v[i+0];
+        vy2 = vy2 + v[i+1]*v[i+1];
+        vz2 = vz2 + v[i+2]*v[i+2];
     }
-    v2 = (vx2+vy2+vz2)/N;
 
+    v2 = (vx2+vy2+vz2)/N;
 
     //printf("  Average of x-component of velocity squared is %f\n",v2);
     return v2;
 }
 
+// VER SE A SEGUINTE FUNÇÃO É MAIS EFICIENTE:
+// double MeanSquaredVelocity() {
+//     double vx2 = 0;
+//     double vy2 = 0;
+//     double vz2 = 0;
+//     double v2;
+
+//     for (int i=0; i<N*3; i+=6) {
+//         // Unroll by processing two particles per iteration
+//         vx2 += v[i]*v[i] + v[i+3]*v[i+3];
+//         vy2 += v[i+1]*v[i+1] + v[i+4]*v[i+4];
+//         vz2 += v[i+2]*v[i+2] + v[i+5]*v[i+5];
+//     }
+
+//     // Handle remaining case if N is not even
+//     if (N % 2 != 0) {
+//         vx2 += v[N*3-3]*v[N*3-3];
+//         vy2 += v[N*3-2]*v[N*3-2];
+//         vz2 += v[N*3-1]*v[N*3-1];
+//     }
+
+//     v2 = (vx2+vy2+vz2)/N;
+
+//     return v2;
+// }
+
 //  Function to calculate the kinetic energy of the system
 double Kinetic() { //Write Function here!
-
     double v2, kin;
 
     kin =0.;
     for (int i=0; i<N; i++) {
-
         v2 = 0.;
         for (int j=0; j<3; j++) {
 
-            v2 += v[i][j]*v[i][j];
+            v2 += v[i*3 + j]*v[i*3 + j];
 
         }
-        kin += m*v2/2.;
 
+        kin += m*v2/2.;
     }
 
     //printf("  Total Kinetic Energy is %f\n",N*mvs*m/2.);
     return kin;
-
 }
 
 
@@ -493,22 +513,21 @@ double Potential() {
             if (j!=i) {
                 r2=0.;
                 for (k=0; k<3; k++) {
-                    r2 += (r[i][k]-r[j][k])*(r[i][k]-r[j][k]);
+                    r2 += (r[i*3 + k]-r[j*3 + k])*(r[i*3 + k]-r[j*3 + k]);
                 }
+
                 rnorm=sqrt(r2);
                 quot=sigma/rnorm;
                 term1 = pow(quot,12.);
                 term2 = pow(quot,6.);
 
                 Pot += 4*epsilon*(term1 - term2);
-
             }
         }
     }
 
     return Pot;
 }
-
 
 
 //   Uses the derivative of the Lennard-Jones potential to calculate
@@ -522,7 +541,7 @@ void computeAccelerations() {
 
     for (i = 0; i < N; i++) {  // set all accelerations to zero
         for (k = 0; k < 3; k++) {
-            a[i][k] = 0;
+            a[i*3 + k] = 0;
         }
     }
     for (i = 0; i < N-1; i++) {   // loop over all distinct pairs i,j
@@ -532,7 +551,7 @@ void computeAccelerations() {
 
             for (k = 0; k < 3; k++) {
                 //  component-by-componenent position of i relative to j
-                rij[k] = r[i][k] - r[j][k];
+                rij[k] = r[i*3 + k] - r[j*3 + k];
                 //  sum of squares of the components
                 rSqd += rij[k] * rij[k];
             }
@@ -541,8 +560,8 @@ void computeAccelerations() {
             f = 24 * (2 * pow(rSqd, -7) - pow(rSqd, -4));
             for (k = 0; k < 3; k++) {
                 //  from F = ma, where m = 1 in natural units!
-                a[i][k] += rij[k] * f;
-                a[j][k] -= rij[k] * f;
+                a[i*3 + k] += rij[k] * f;
+                a[j*3 + k] -= rij[k] * f;
             }
         }
     }
@@ -561,9 +580,9 @@ double VelocityVerlet(double dt, int iter, FILE *fp) {
     //printf("  Updated Positions!\n");
     for (i=0; i<N; i++) {
         for (j=0; j<3; j++) {
-            r[i][j] += v[i][j]*dt + 0.5*a[i][j]*dt*dt;
+            r[i*3 + j] += v[i*3 + j]*dt + 0.5*a[i*3 + j]*dt*dt;
 
-            v[i][j] += 0.5*a[i][j]*dt;
+            v[i*3 + j] += 0.5*a[i*3 + j]*dt;
         }
         //printf("  %i  %6.4e   %6.4e   %6.4e\n",i,r[i][0],r[i][1],r[i][2]);
     }
@@ -572,24 +591,23 @@ double VelocityVerlet(double dt, int iter, FILE *fp) {
     //  Update velocity with updated acceleration
     for (i=0; i<N; i++) {
         for (j=0; j<3; j++) {
-            v[i][j] += 0.5*a[i][j]*dt;
+            v[i*3 + j] += 0.5*a[i*3 + j]*dt;
         }
     }
 
     // Elastic walls
     for (i=0; i<N; i++) {
         for (j=0; j<3; j++) {
-            if (r[i][j]<0.) {
-                v[i][j] *=-1.; //- elastic walls
-                psum += 2*m*fabs(v[i][j])/dt;  // contribution to pressure from "left" walls
+            if (r[i*3 + j]<0.) {
+                v[i*3 + j] *=-1.; //- elastic walls
+                psum += 2*m*fabs(v[i*3 + j])/dt;  // contribution to pressure from "left" walls
             }
-            if (r[i][j]>=L) {
-                v[i][j]*=-1.;  //- elastic walls
-                psum += 2*m*fabs(v[i][j])/dt;  // contribution to pressure from "right" walls
+            if (r[i*3 + j]>=L) {
+                v[i*3 + j]*=-1.;  //- elastic walls
+                psum += 2*m*fabs(v[i*3 + j])/dt;  // contribution to pressure from "right" walls
             }
         }
     }
-
 
     /* removed, uncomment to save atoms positions */
     /*for (i=0; i<N; i++) {
@@ -613,7 +631,7 @@ void initializeVelocities() {
 
         for (j=0; j<3; j++) {
             //  Pull a number from a Gaussian Distribution
-            v[i][j] = gaussdist();
+            v[i*3 + j] = gaussdist();
 
         }
     }
@@ -625,7 +643,7 @@ void initializeVelocities() {
     for (i=0; i<N; i++) {
         for (j=0; j<3; j++) {
 
-            vCM[j] += m*v[i][j];
+            vCM[j] += m*v[i*3 + j];
 
         }
     }
@@ -640,7 +658,7 @@ void initializeVelocities() {
     for (i=0; i<N; i++) {
         for (j=0; j<3; j++) {
 
-            v[i][j] -= vCM[j];
+            v[i*3 + j] -= vCM[j];
 
         }
     }
@@ -652,7 +670,7 @@ void initializeVelocities() {
     for (i=0; i<N; i++) {
         for (j=0; j<3; j++) {
 
-            vSqdSum += v[i][j]*v[i][j];
+            vSqdSum += v[i*3 + j]*v[i*3 + j];
 
         }
     }
@@ -662,7 +680,7 @@ void initializeVelocities() {
     for (i=0; i<N; i++) {
         for (j=0; j<3; j++) {
 
-            v[i][j] *= lambda;
+            v[i*3 + j] *= lambda;
 
         }
     }
