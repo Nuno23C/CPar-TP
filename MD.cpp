@@ -388,9 +388,9 @@ void initialize() {
         for (j=0; j<n; j++) {
             for (k=0; k<n; k++) {
                 if (p<N) {
-                    r[p*3+0] = (i + 0.5)*pos; // ALTERADO
-                    r[p*3+1] = (j + 0.5)*pos; // ALTERADO
-                    r[p*3+2] = (k + 0.5)*pos; // ALTERADO
+                    r[p*3+0] = (i + 0.5)*pos;
+                    r[p*3+1] = (j + 0.5)*pos;
+                    r[p*3+2] = (k + 0.5)*pos;
                 }
                 p++;
             }
@@ -436,16 +436,29 @@ void initialize() {
 
 
 //  Function to calculate the averaged velocity squared
-double MeanSquaredVelocity() {
+double MeanSquaredVelocity() { // day12
     double vx2 = 0;
     double vy2 = 0;
     double vz2 = 0;
     double v2;
 
-    for (int i=0; i<N; i++) {
-        vx2 = vx2 + v[i+0]*v[i+0];
-        vy2 = vy2 + v[i+1]*v[i+1];
-        vz2 = vz2 + v[i+2]*v[i+2];
+    // for (int i=0; i<N; i++) {
+    //     vx2 = vx2 + pow(v[i*3+0], 2);
+    //     vy2 = vy2 + pow(v[i*3+1], 2);
+    //     vz2 = vz2 + pow(v[i*3+2], 2);
+    // }
+
+    for (int i=0; i<N*3; i+=6) {
+        vx2 += pow(v[i], 2) + pow(v[i+3], 2);
+        vy2 += pow(v[i+1], 2) + pow(v[i+4], 2);
+        vz2 += pow(v[i+2], 2) + pow(v[i+5], 2);
+    }
+
+    // Handle remaining case if N is not even
+    if (N % 2 != 0) {
+        vx2 += pow(v[N*3-3], 2);
+        vy2 += pow(v[N*3-2], 2);
+        vz2 += pow(v[N*3-1], 2);
     }
 
     v2 = (vx2+vy2+vz2)/N;
@@ -454,44 +467,17 @@ double MeanSquaredVelocity() {
     return v2;
 }
 
-// VER SE A SEGUINTE FUNÇÃO É MAIS EFICIENTE:
-// double MeanSquaredVelocity() {
-//     double vx2 = 0;
-//     double vy2 = 0;
-//     double vz2 = 0;
-//     double v2;
-
-//     for (int i=0; i<N*3; i+=6) {
-//         // Unroll by processing two particles per iteration
-//         vx2 += v[i]*v[i] + v[i+3]*v[i+3];
-//         vy2 += v[i+1]*v[i+1] + v[i+4]*v[i+4];
-//         vz2 += v[i+2]*v[i+2] + v[i+5]*v[i+5];
-//     }
-
-//     // Handle remaining case if N is not even
-//     if (N % 2 != 0) {
-//         vx2 += v[N*3-3]*v[N*3-3];
-//         vy2 += v[N*3-2]*v[N*3-2];
-//         vz2 += v[N*3-1]*v[N*3-1];
-//     }
-
-//     v2 = (vx2+vy2+vz2)/N;
-
-//     return v2;
-// }
 
 //  Function to calculate the kinetic energy of the system
-double Kinetic() { //Write Function here!
+double Kinetic() { // day12
     double v2, kin;
 
-    kin =0.;
+    kin = 0.;
     for (int i=0; i<N; i++) {
         v2 = 0.;
-        for (int j=0; j<3; j++) {
-
-            v2 += v[i*3 + j]*v[i*3 + j];
-
-        }
+        v2 += pow(v[i*3 + 0], 2);
+        v2 += pow(v[i*3 + 1], 2);
+        v2 += pow(v[i*3 + 2], 2);
 
         kin += m*v2/2.;
     }
