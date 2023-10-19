@@ -52,7 +52,7 @@ const int MAXPART=5001;
 //  Position
 double r[MAXPART*3];
 //  Velocity
-double v[MAXPART][3];
+double v[MAXPART*3];
 //  Acceleration
 double a[MAXPART][3];
 
@@ -406,11 +406,11 @@ double MeanSquaredVelocity() {
     double v2, temp;
 
     for (int i=0; i<N; i++) {
-        temp = v[i][0];
+        temp = v[i*3+0];
         vx2 += temp * temp;
-        temp = v[i][1];
+        temp = v[i*3+1];
         vy2 += temp * temp;
-        temp = v[i][2];
+        temp = v[i*3+2];
         vz2 += temp * temp;
     }
     v2 = (vx2+vy2+vz2)/N;
@@ -419,15 +419,18 @@ double MeanSquaredVelocity() {
     return v2;
 }
 
+
 //  Function to calculate the kinetic energy of the system
 double Kinetic() { //Write Function here!
+    int tempi;
     double v2, kin, temp;
 
     kin =0.;
     for (int i=0; i<N; i++) {
+        tempi=i*3;
         v2 = 0.;
         for (int j=0; j<3; j++) {
-            temp = v[i][j];
+            temp = v[tempi + j];
             v2 += temp * temp;
         }
 
@@ -523,9 +526,9 @@ double VelocityVerlet(double dt, int iter, FILE *fp) {
         tempi=i*3;
         for (j=0; j<3; j++) {
             temp = a[i][j];
-            r[tempi+j] += v[i][j]*dt + 0.5*temp*dt*dt;
+            r[tempi+j] += v[tempi+j]*dt + 0.5*temp*dt*dt;
 
-            v[i][j] += 0.5*temp*dt;
+            v[tempi+j] += 0.5*temp*dt;
         }
         //printf("  %i  %6.4e   %6.4e   %6.4e\n",i,r[i][0],r[i][1],r[i][2]);
     }
@@ -535,8 +538,9 @@ double VelocityVerlet(double dt, int iter, FILE *fp) {
 
     //  Update velocity with updated acceleration
     for (i=0; i<N; i++) {
+        tempi=i*3;
         for (j=0; j<3; j++) {
-            v[i][j] += 0.5*a[i][j]*dt;
+            v[tempi + j] += 0.5*a[i][j]*dt;
         }
     }
 
@@ -547,12 +551,12 @@ double VelocityVerlet(double dt, int iter, FILE *fp) {
         for (j=0; j<3; j++) {
             temp = r[tempi+j];
             if (temp < 0.) {
-                v[i][j] *=-1.; //- elastic walls
-                psum += constant * fabs(v[i][j]);  // contribution to pressure from "left" walls
+                v[tempi+j] *=-1.; //- elastic walls
+                psum += constant * fabs(v[tempi+j]);  // contribution to pressure from "left" walls
             }
             if (temp >= L) {
-                v[i][j]*=-1.;  //- elastic walls
-                psum += constant * fabs(v[i][j]);  // contribution to pressure from "right" walls
+                v[tempi+j]*=-1.;  //- elastic walls
+                psum += constant * fabs(v[tempi+j]);  // contribution to pressure from "right" walls
             }
         }
     }
@@ -572,30 +576,25 @@ double VelocityVerlet(double dt, int iter, FILE *fp) {
 
 
 void initializeVelocities() {
-
-    int i, j;
+    int i, j, tempi;
+    double vCM[3] = {0, 0, 0};
+    double temp, lambda, vSqdSum=0.;
 
     for (i=0; i<N; i++) {
-
+        tempi = i*3;
         for (j=0; j<3; j++) {
             //  Pull a number from a Gaussian Distribution
-            v[i][j] = gaussdist();
+            v[tempi + j] = gaussdist();
 
         }
     }
-
-    // Vcm = sum_i^N  m*v_i/  sum_i^N  M
-    // Compute center-of-mas velocity according to the formula above
-    double vCM[3] = {0, 0, 0};
 
     for (i=0; i<N; i++) {
+        tempi = i*3;
         for (j=0; j<3; j++) {
-
-            vCM[j] += m*v[i][j];
-
+            vCM[j] += m*v[tempi+j];
         }
     }
-
 
     for (i=0; i<3; i++) vCM[i] /= N*m;
 
@@ -604,32 +603,28 @@ void initializeVelocities() {
     //  center of mass velocity to zero so that the system does
     //  not drift in space!
     for (i=0; i<N; i++) {
+        tempi = i*3;
         for (j=0; j<3; j++) {
-
-            v[i][j] -= vCM[j];
-
+            v[tempi + j] -= vCM[j];
         }
     }
 
     //  Now we want to scale the average velocity of the system
     //  by a factor which is consistent with our initial temperature, Tinit
-    double vSqdSum, lambda;
-    vSqdSum=0.;
     for (i=0; i<N; i++) {
+        tempi = i*3;
         for (j=0; j<3; j++) {
-
-            vSqdSum += v[i][j]*v[i][j];
-
+            temp = v[tempi + j];
+            vSqdSum += temp * temp;
         }
     }
 
-    lambda = sqrt( 3*(N-1)*Tinit/vSqdSum);
+    lambda = sqrt(3*(N-1)*Tinit/vSqdSum);
 
     for (i=0; i<N; i++) {
+        tempi = i*3;
         for (j=0; j<3; j++) {
-
-            v[i][j] *= lambda;
-
+            v[tempi + j] *= lambda;
         }
     }
 }
