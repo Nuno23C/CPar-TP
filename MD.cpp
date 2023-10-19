@@ -54,7 +54,7 @@ double r[MAXPART*3];
 //  Velocity
 double v[MAXPART*3];
 //  Acceleration
-double a[MAXPART][3];
+double a[MAXPART*3];
 
 // atom type
 char atype[10];
@@ -479,8 +479,9 @@ void computeAccelerations() {
     double rij[3]; // position of i relative to j
 
     for (i = 0; i < N; i++) {  // set all accelerations to zero
+        tempi = i * 3;
         for (k = 0; k < 3; k++) {
-            a[i][k] = 0;
+            a[tempi + k] = 0;
         }
     }
 
@@ -505,8 +506,8 @@ void computeAccelerations() {
             for (k = 0; k < 3; k++) {
                 //  from F = ma, where m = 1 in natural units!
                 temp = rij[k] * f;
-                a[i][k] += temp;
-                a[j][k] -= temp;
+                a[tempi+k] += temp;
+                a[tempi+k] -= temp;
             }
         }
     }
@@ -525,7 +526,7 @@ double VelocityVerlet(double dt, int iter, FILE *fp) {
     for (i=0; i<N; i++) {
         tempi=i*3;
         for (j=0; j<3; j++) {
-            temp = a[i][j];
+            temp = a[tempi+j];
             r[tempi+j] += v[tempi+j]*dt + 0.5*temp*dt*dt;
 
             v[tempi+j] += 0.5*temp*dt;
@@ -540,7 +541,7 @@ double VelocityVerlet(double dt, int iter, FILE *fp) {
     for (i=0; i<N; i++) {
         tempi=i*3;
         for (j=0; j<3; j++) {
-            v[tempi + j] += 0.5*a[i][j]*dt;
+            v[tempi + j] += 0.5*a[tempi+j]*dt;
         }
     }
 
