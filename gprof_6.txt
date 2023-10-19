@@ -3,10 +3,10 @@ Flat profile:
 Each sample counts as 0.01 seconds.
   %   cumulative   self              self     total           
  time   seconds   seconds    calls  ms/call  ms/call  name    
- 53.50      5.34     5.34      201    26.59    26.59  computeAccelerations()
- 46.48      9.99     4.64                             Potential()
-  0.10     10.00     0.01                             VelocityVerlet(double, int, _IO_FILE*)
-  0.00     10.00     0.00     6480     0.00     0.00  gaussdist()
+ 56.51      6.13     6.13      201    30.47    30.47  computeAccelerations()
+ 43.49     10.84     4.71                             Potential()
+  0.09     10.85     0.01                             VelocityVerlet(double, int, _IO_FILE*)
+  0.00     10.85     0.00     6480     0.00     0.00  gaussdist()
 
  %         the percentage of the total running time of the
 time       program used by this function.
@@ -44,18 +44,18 @@ notice and this notice are preserved.
 		     Call graph (explanation follows)
 
 
-granularity: each sample hit covers 2 byte(s) for 0.10% of 10.00 seconds
+granularity: each sample hit covers 2 byte(s) for 0.09% of 10.85 seconds
 
 index % time    self  children    called     name
                                                  <spontaneous>
-[1]     53.6    0.01    5.34                 VelocityVerlet(double, int, _IO_FILE*) [1]
-                5.34    0.00     201/201         computeAccelerations() [2]
+[1]     56.5    0.01    6.13                 VelocityVerlet(double, int, _IO_FILE*) [1]
+                6.13    0.00     201/201         computeAccelerations() [2]
 -----------------------------------------------
-                5.34    0.00     201/201         VelocityVerlet(double, int, _IO_FILE*) [1]
-[2]     53.5    5.34    0.00     201         computeAccelerations() [2]
+                6.13    0.00     201/201         VelocityVerlet(double, int, _IO_FILE*) [1]
+[2]     56.5    6.13    0.00     201         computeAccelerations() [2]
 -----------------------------------------------
                                                  <spontaneous>
-[3]     46.4    4.64    0.00                 Potential() [3]
+[3]     43.5    4.71    0.00                 Potential() [3]
 -----------------------------------------------
                 0.00    0.00    6480/6480        initializeVelocities() [14]
 [11]     0.0    0.00    0.00    6480         gaussdist() [11]

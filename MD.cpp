@@ -479,9 +479,9 @@ void computeAccelerations() {
     double rij[3]; // position of i relative to j
 
     for (i = 0; i < N; i++) {  // set all accelerations to zero
-        tempi = i * 3;
+        tempi = i*3;
         for (k = 0; k < 3; k++) {
-            a[tempi + k] = 0;
+            a[tempi+k] = 0;
         }
     }
 
@@ -507,11 +507,12 @@ void computeAccelerations() {
                 //  from F = ma, where m = 1 in natural units!
                 temp = rij[k] * f;
                 a[tempi+k] += temp;
-                a[tempi+k] -= temp;
+                a[tempj+k] -= temp;
             }
         }
     }
 }
+
 
 // returns sum of dv/dt*m/A (aka Pressure) from elastic collisions with walls
 double VelocityVerlet(double dt, int iter, FILE *fp) {
