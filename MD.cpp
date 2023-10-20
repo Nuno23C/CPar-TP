@@ -73,7 +73,7 @@ double gaussdist();
 //  Initialize velocities according to user-supplied initial Temperature (Tinit)
 void initializeVelocities();
 //  Compute total potential energy from particle coordinates
-double Potential();
+// double Potential();
 //  Compute mean squared velocity from particle velocities
 double MeanSquaredVelocity();
 //  Compute total kinetic energy from particle mass and velocities
@@ -308,7 +308,7 @@ int main()
         //  We would also like to use the IGL to try to see if we can extract the gas constant
         mvs = MeanSquaredVelocity();
         KE = Kinetic();
-        PE = Potential();
+        // PE = Potential();
 
         // Temperature from Kinetic Theory
         Temp = m*mvs/(3*kB) * TempFac;
@@ -368,14 +368,16 @@ void initialize() {
     p = 0;
     //  initialize positions
     for (i=0; i<n; i++) {
+        double ti =  (i + 0.5)*pos;
         for (j=0; j<n; j++) {
+            double tj =  (j + 0.5)*pos;
             for (k=0; k<n; k++) {
-                if (p<N) {
-                    r[p*3+0] = (i + 0.5)*pos;
-                    r[p*3+1] = (j + 0.5)*pos;
-                    r[p*3+2] = (k + 0.5)*pos;
+                double tk =  (k + 0.5)*pos;
+                if (p<N*3) {
+                    r[p++] = ti;
+                    r[p++] = tj;
+                    r[p++] = tk;
                 }
-                p++;
             }
         }
     }
@@ -404,13 +406,15 @@ double MeanSquaredVelocity() {
     double vy2 = 0;
     double vz2 = 0;
     double v2, temp;
+    int tempi;
 
     for (int i=0; i<N; i++) {
-        temp = v[i*3+0];
+        tempi = i*3;
+        temp = v[tempi];
         vx2 += temp * temp;
-        temp = v[i*3+1];
+        temp = v[tempi + 1];
         vy2 += temp * temp;
-        temp = v[i*3+2];
+        temp = v[tempi + 2];
         vz2 += temp * temp;
     }
     v2 = (vx2+vy2+vz2)/N;
@@ -443,31 +447,35 @@ double Kinetic() { //Write Function here!
 
 
 // Function to calculate the potential energy of the system
-double Potential() {
-    double quot, r2, rnorm, term1, term2, Pot, temp;
-    int i, j, k, tempi, tempj;
+// double Potential() {
+//     double quot, r2, rnorm, term1, term2, Pot, temp;
+//     int i, j, k, tempi, tempj;
 
-    Pot=0.;
-    for (i=0; i<N; i++) {
-        for (j=0; j<N; j++) {
-            if (j!=i) {
-                r2=0.;
-                for (k=0; k<3; k++) {
-                    temp = r[tempi+k]-r[tempj+k];
-                    r2 += temp * temp;
-                }
-                rnorm = sqrt(r2);
-                quot = sigma/rnorm;
-                term2 = quot*quot*quot*quot*quot*quot;
-                term1 = term2*quot*quot*quot*quot*quot*quot;
+//     // printf("FORA = i %d | j %d \n", tempi, tempj);
 
-                Pot += 4*epsilon*(term1 - term2);
-            }
-        }
-    }
+//     Pot=0.;
+//     for (i=0; i<N; i++) {
+//         // tempi = i*3;
+//         for (j=0; j<N; j++) {
+//             // tempj = j*3;
+//             if (j!=i) {
+//                 r2=0.;
+//                 for (k=0; k<3; k++) {
+//                     temp = r[tempi + k]-r[tempj + k];
+//                     r2 += temp * temp;
+//                 }
+//                 rnorm = sqrt(r2);
+//                 quot = sigma/rnorm;
+//                 term2 = quot*quot*quot*quot*quot*quot;
+//                 term1 = term2*term2;
 
-    return Pot;
-}
+//                 Pot += 4*epsilon*(term1 - term2);
+//             }
+//         }
+//     }
+
+//     return Pot;
+// }
 
 
 //   Uses the derivative of the Lennard-Jones potential to calculate
