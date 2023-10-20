@@ -32,6 +32,8 @@
 // Number of particles
 int N;
 
+double KE, mvs;
+
 double NA = 6.022140857e23;
 double kBSI = 1.38064852e-23;  // m^2*kg/(s^2*K)
 
@@ -73,6 +75,8 @@ double MeanSquaredVelocity();
 //  Compute total kinetic energy from particle mass and velocities
 double Kinetic();
 
+void MeanSquaredVelocityAndKinetic(double* KE, double* mvs);
+
 int main()
 {
 
@@ -80,7 +84,8 @@ int main()
     int i;
     double dt, Vol, Temp, Press, Pavg, Tavg, rho;
     double VolFac, TempFac, PressFac, timefac;
-    double KE, PE, mvs, gc, Z;
+    // double KE, PE, mvs, gc, Z;
+    double PE, gc, Z;
     char trash[10000], prefix[1000], tfn[1000], ofn[1000], afn[1000];
     FILE *infp, *tfp, *ofp, *afp;
 
@@ -288,7 +293,6 @@ int main()
         else if (i==10*tenp) printf(" 100 ]\n");
         fflush(stdout);
 
-
         // This updates the positions and velocities using Newton's Laws
         // Also computes the Pressure as the sum of momentum changes from wall collisions / timestep
         // which is a Kinetic Theory of gasses concept of Pressure
@@ -300,8 +304,11 @@ int main()
         //  Instantaneous mean velocity squared, Temperature, Pressure
         //  Potential, and Kinetic Energy
         //  We would also like to use the IGL to try to see if we can extract the gas constant
-        mvs = MeanSquaredVelocity();
-        KE = Kinetic();
+
+        // mvs = MeanSquaredVelocity();
+        // KE = Kinetic();
+        MeanSquaredVelocityAndKinetic(&KE, &mvs);
+
         PE = Potential();
 
         // Temperature from Kinetic Theory
@@ -391,6 +398,32 @@ void initialize() {
      */
 }
 
+void MeanSquaredVelocityAndKinetic(double* KE, double* mvs) {
+    double vx2 = 0;
+    double vy2 = 0;
+    double vz2 = 0;
+    double msv, temp, kin, v2, temp1, vk;
+    int tempi;
+
+	for (int i=0; i<N; i++) {
+		tempi = i*3;
+
+        msv = 0.;
+		for (int j=0; j<3; j++) {
+            temp = v[tempi + j];
+            temp1 = temp * temp;
+            msv += temp1;
+            vk += temp1;
+        }
+
+		kin += msv/2.0;
+    }
+	v2 = vk/N;
+
+    *KE = kin;
+    *mvs = v2;
+}
+
 
 //  Function to calculate the averaged velocity squared
 double MeanSquaredVelocity() {
@@ -398,16 +431,16 @@ double MeanSquaredVelocity() {
     double vy2 = 0;
     double vz2 = 0;
     double v2, temp;
+    int tempi;
 
     for (int i=0; i<N; i++) {
-        temp = v[i*3+0];
-        vx2 += temp * temp;
-        temp = v[i*3+1];
-        vy2 += temp * temp;
-        temp = v[i*3+2];
-        vz2 += temp * temp;
+        tempi = i*3;
+        for (int j=0; j<3; j++) {
+            temp = v[tempi + j];
+            v2 += temp * temp;
+        }
     }
-    v2 = (vx2+vy2+vz2)/N;
+    v2 /= N;
 
     //printf("  Average of x-component of velocity squared is %f\n",v2);
     return v2;
