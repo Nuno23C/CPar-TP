@@ -32,12 +32,6 @@
 // Number of particles
 int N;
 
-//  Lennard-Jones parameters in natural units!
-double sigma = 1.;
-double epsilon = 1.;
-double m = 1.;
-double kB = 1.;
-
 double NA = 6.022140857e23;
 double kBSI = 1.38064852e-23;  // m^2*kg/(s^2*K)
 
@@ -311,7 +305,7 @@ int main()
         PE = Potential();
 
         // Temperature from Kinetic Theory
-        Temp = m*mvs/(3*kB) * TempFac;
+        Temp = mvs/3 * TempFac;
 
         // Instantaneous gas constant and compressibility - not well defined because
         // pressure may be zero in some instances because there will be zero wall collisions,
@@ -434,7 +428,7 @@ double Kinetic() { //Write Function here!
             v2 += temp * temp;
         }
 
-        kin += m*v2/2.;
+        kin += v2/2.;
     }
 
     //printf("  Total Kinetic Energy is %f\n",N*mvs*m/2.);
@@ -444,7 +438,7 @@ double Kinetic() { //Write Function here!
 
 // Function to calculate the potential energy of the system
 double Potential() {
-    double quot, r2, rnorm, term1, term2, Pot, temp;
+    double quot, r2, rnorm, term1, term2, Pot, temp, x, y, z;
     int i, j, k, tempi, tempj;
 
     Pot=0.;
@@ -454,16 +448,17 @@ double Potential() {
             tempj = j*3;
             if (j!=i) {
                 r2=0.;
-                for (k=0; k<3; k++) {
-                    temp = r[tempi+k]-r[tempj+k];
-                    r2 += temp * temp;
-                }
-                rnorm = sqrt(r2);
-                quot = sigma/rnorm;
-                term2 = quot*quot*quot*quot*quot*quot;
-                term1 = term2*quot*quot*quot*quot*quot*quot;
+                x = r[tempi] - r[tempj];
+                y = r[tempi+1] - r[tempj+1];
+                z = r[tempi+2] - r[tempj+2];
 
-                Pot += 4*epsilon*(term1 - term2);
+                r2 = x*x+y*y+z*z;
+                rnorm = sqrt(r2);
+                quot = 1/rnorm;
+                term2 = quot*quot*quot;
+                term1 = term2*term2;
+
+                Pot += 4*(term1 - term2);
             }
         }
     }
@@ -549,7 +544,7 @@ double VelocityVerlet(double dt, int iter, FILE *fp) {
     }
 
     // Elastic walls
-    double constant = 2 * m / dt;
+    double constant = 2/dt;
     for (i=0; i<N; i++) {
         tempi=i*3;
         for (j=0; j<3; j++) {
@@ -596,11 +591,11 @@ void initializeVelocities() {
     for (i=0; i<N; i++) {
         tempi = i*3;
         for (j=0; j<3; j++) {
-            vCM[j] += m*v[tempi+j];
+            vCM[j] += v[tempi+j];
         }
     }
 
-    for (i=0; i<3; i++) vCM[i] /= N*m;
+    for (i=0; i<3; i++) vCM[i] /= N;
 
     //  Subtract out the center-of-mass velocity from the
     //  velocity of each particle... effectively set the
