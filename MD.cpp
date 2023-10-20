@@ -438,7 +438,7 @@ double Kinetic() { //Write Function here!
 
 // Function to calculate the potential energy of the system
 double Potential() {
-    double quot, r2, rnorm, term1, term2, Pot, temp, x, y, z;
+    double quot, r2, rnorm, term1, term2, term3, Pot, temp, x, y, z, r23;
     int i, j, k, tempi, tempj;
 
     Pot=0.;
@@ -453,12 +453,12 @@ double Potential() {
                 z = r[tempi+2] - r[tempj+2];
 
                 r2 = x*x+y*y+z*z;
-                rnorm = sqrt(r2);
-                quot = 1/rnorm;
-                term2 = quot*quot*quot;
-                term1 = term2*term2;
+                r23 = r2*r2*r2;
+                //term2 = 1/ (r23);
+                //term1 = term2*term2;
 
-                Pot += 4*(term1 - term2);
+                //Pot += 4*(term1 - term2);
+                Pot += 4*((1-r23) / (r23*r23));
             }
         }
     }
@@ -472,7 +472,7 @@ double Potential() {
 //   accelleration of each atom.
 void computeAccelerations() {
     int i, j, k, tempi, tempj;
-    double f, rSqd, temp;
+    double f, rSqd,rSqd3,rSqd6, temp;
     double rij[3]; // position of i relative to j
 
     for (i = 0; i < N; i++) {  // set all accelerations to zero
@@ -489,17 +489,14 @@ void computeAccelerations() {
             // initialize r^2 to zero
             rSqd = 0;
 
-            for (k = 0; k < 3; k++) {
-                //  component-by-componenent position of i relative to j
-                rij[k] = r[tempi+k] - r[tempj+k];
+            rij[0] = r[tempi] - r[tempj];
+            rij[1] = r[tempi+1] - r[tempj+1];
+            rij[2] = r[tempi+2] - r[tempj+2];
 
-                //  sum of squares of the components
-                temp = rij[k];
-                rSqd += temp * temp;
-            }
-
-            //  From derivative of Lennard-Jones with sigma and epsilon set equal to 1 in natural units!
-            f = 24 * (2 * (1 / (rSqd * rSqd * rSqd * rSqd * rSqd * rSqd * rSqd)) - 1 / (rSqd * rSqd * rSqd * rSqd));
+            rSqd = rij[0]*rij[0]+rij[1]*rij[1]+rij[2]*rij[2];
+            rSqd3 = rSqd * rSqd * rSqd;
+            rSqd6 = rSqd3*rSqd3;
+            f = 24*( (2-rSqd3) / (rSqd6*rSqd) );
             for (k = 0; k < 3; k++) {
                 //  from F = ma, where m = 1 in natural units!
                 temp = rij[k] * f;
