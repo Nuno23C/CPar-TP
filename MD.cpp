@@ -33,7 +33,6 @@
 int N;
 
 double KE, PE, mvs;
-bool flag = false;
 
 double NA = 6.022140857e23;
 double kBSI = 1.38064852e-23;  // m^2*kg/(s^2*K)
@@ -54,7 +53,7 @@ double v[MAXPART*3];
 double a[MAXPART*3];
 
 // atom type
-char atype[10];
+char atype[2];
 //  Function prototypes
 //  initialize positions on simple cubic lattice, also calls function to initialize velocities
 void initialize();
@@ -78,17 +77,14 @@ void initializeVelocities();
 void MeanSquaredVelocityAndKinetic();
 void computeAccelerationsAndPotential();
 
-int main()
-{
-
+int main() {
     //  variable delcarations
     int i;
     double dt, Vol, Temp, Press, Pavg, Tavg, rho;
     double VolFac, TempFac, PressFac, timefac;
     double gc, Z;
-    char trash[10000], prefix[1000], tfn[1000], ofn[1000], afn[1000];
-    FILE *infp, *tfp, *ofp, *afp;
-
+    char prefix[1000], tfn[1000], ofn[1000], afn[1000];
+    FILE *tfp, *ofp, *afp;
 
     printf("\n  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
     printf("                  WELCOME TO WILLY P CHEM MD!\n");
@@ -122,7 +118,6 @@ int main()
     //  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     //  Edit these factors to be computed in terms of basic properties in natural units of
     //  the gas being simulated
-
 
     printf("\n  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
     printf("  WHICH NOBLE GAS WOULD YOU LIKE TO SIMULATE? (DEFAULT IS ARGON)\n");
@@ -422,7 +417,7 @@ void MeanSquaredVelocityAndKinetic() {
 
 
 void computeAccelerationsAndPotential() {
-    int i, j, k, tempi, tempj;
+    int i, j, tempi, tempj;
     double Pot, f, x, y, z, r2, rSqd, rSqd3, rSqd6, temp;
 
     for (i = 0; i < N; i++) { // set all accelerations to zero
@@ -476,8 +471,8 @@ void computeAccelerationsAndPotential() {
 
 // returns sum of dv/dt*m/A (aka Pressure) from elastic collisions with walls
 double VelocityVerlet(double dt, int iter, FILE *fp) {
-    int i, j, k, tempi;
-    double psum = 0., temp, v_abs;
+    int i, j, tempi;
+    double psum = 0., temp;
 
     for (i=0; i<N; i++) {
         tempi=i*3;
@@ -534,7 +529,6 @@ void initializeVelocities() {
         for (j=0; j<3; j++) {
             //  Pull a number from a Gaussian Distribution
             v[tempi + j] = gaussdist();
-
             vCM[j] += v[tempi+j];
         }
     }
