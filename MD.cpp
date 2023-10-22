@@ -32,7 +32,8 @@
 // Number of particles
 int N;
 
-double KE, mvs;
+double KE, PE, mvs;
+bool flag = false;
 
 double NA = 6.022140857e23;
 double kBSI = 1.38064852e-23;  // m^2*kg/(s^2*K)
@@ -63,19 +64,19 @@ void initialize();
 double VelocityVerlet(double dt, int iter, FILE *fp);
 //  Compute Force using F = -dV/dr
 //  solve F = ma for use in Velocity Verlet
-void computeAccelerations();
+// void computeAccelerations();
 //  Numerical Recipes function for generation gaussian distribution
 double gaussdist();
 //  Initialize velocities according to user-supplied initial Temperature (Tinit)
 void initializeVelocities();
 //  Compute total potential energy from particle coordinates
-double Potential();
+// double Potential();
 //  Compute mean squared velocity from particle velocities
-double MeanSquaredVelocity();
+// double MeanSquaredVelocity();
 //  Compute total kinetic energy from particle mass and velocities
-double Kinetic();
-
-void MeanSquaredVelocityAndKinetic(double* KE, double* mvs);
+// double Kinetic();
+void MeanSquaredVelocityAndKinetic();
+void computeAccelerationsAndPotential();
 
 int main()
 {
@@ -84,8 +85,7 @@ int main()
     int i;
     double dt, Vol, Temp, Press, Pavg, Tavg, rho;
     double VolFac, TempFac, PressFac, timefac;
-    // double KE, PE, mvs, gc, Z;
-    double PE, gc, Z;
+    double gc, Z;
     char trash[10000], prefix[1000], tfn[1000], ofn[1000], afn[1000];
     FILE *infp, *tfp, *ofp, *afp;
 
@@ -254,7 +254,6 @@ int main()
     else {
         dt = 0.5e-14/timefac;
         NumTime=200;
-
     }
 
     //  Put all the atoms in simple crystal lattice and give them random velocities
@@ -264,7 +263,7 @@ int main()
     //  Based on their positions, calculate the ininial intermolecular forces
     //  The accellerations of each particle will be defined from the forces and their
     //  mass, and this will allow us to update their positions via Newton's law
-    computeAccelerations();
+    computeAccelerationsAndPotential();
 
 
     // Print number of particles to the trajectory file
@@ -307,9 +306,8 @@ int main()
 
         // mvs = MeanSquaredVelocity();
         // KE = Kinetic();
-        MeanSquaredVelocityAndKinetic(&KE, &mvs);
-
-        PE = Potential();
+        // PE = Potential();
+        MeanSquaredVelocityAndKinetic();
 
         // Temperature from Kinetic Theory
         Temp = mvs/3 * TempFac;
@@ -397,10 +395,9 @@ void initialize() {
      */
 }
 
-void MeanSquaredVelocityAndKinetic(double* KE, double* mvs) {
-    double vx2 = 0;
-    double vy2 = 0;
-    double vz2 = 0;
+
+// MeanSquaredVelocity and Kinetic functions merged
+void MeanSquaredVelocityAndKinetic() {
     double msv, temp, kin, v2, temp1, vk;
     int i, j, tempi;
 
@@ -419,82 +416,61 @@ void MeanSquaredVelocityAndKinetic(double* KE, double* mvs) {
     }
 	v2 = vk/N;
 
-    *KE = kin;
-    *mvs = v2;
+    KE = kin;
+    mvs = v2;
 }
 
 
-// Function to calculate the potential energy of the system
-double Potential() {
-    double r2, Pot, x, y, z, r23;
-    int i, j, tempi, tempj;
-
-    Pot=0.;
-    for (i=0; i<N; i++) {
-        tempi = i*3;
-        for (j=0; j<N; j++) {
-            tempj = j*3;
-            if (j!=i) {
-                r2=0.;
-                x = r[tempi] - r[tempj];
-                y = r[tempi+1] - r[tempj+1];
-                z = r[tempi+2] - r[tempj+2];
-
-                r2 = x*x+y*y+z*z;
-                r23 = r2*r2*r2;
-                //term2 = 1/r23;
-                //term1 = term2*term2;
-                //Pot += 4*(term1 - term2);
-                Pot += 4*((1-r23) / (r23*r23));
-            }
-        }
-    }
-
-    return Pot;
-}
-
-
-//   Uses the derivative of the Lennard-Jones potential to calculate
-//   the forces on each atom.  Then uses a = F/m to calculate the
-//   accelleration of each atom.
-void computeAccelerations() {
+void computeAccelerationsAndPotential() {
     int i, j, k, tempi, tempj;
-    double f, rSqd, rSqd3, rSqd6, temp, temp0, temp1, temp2;
-    double rij[3]; // position of i relative to j
+    double Pot, f, x, y, z, r2, rSqd, rSqd3, rSqd6, temp;
 
-    for (i = 0; i < N; i++) {  // set all accelerations to zero
+    for (i = 0; i < N; i++) { // set all accelerations to zero
         tempi = i*3;
         a[tempi+0] = 0;
         a[tempi+1] = 0;
         a[tempi+2] = 0;
     }
 
-    for (i = 0; i < N-1; i++) {   // loop over all distinct pairs i,j
+    Pot=0.;
+    for (i=0; i<N; i++) {
         tempi = i*3;
-        for (j = i+1; j < N; j++) {
-            tempj = j*3;
-            // initialize r^2 to zero
-            rSqd = 0;
+        for (j=0; j<N; j++) {
+            if(j!=i) {
+                tempj = j*3;
+                rSqd = 0;
+                r2=0.;
 
-            rij[0] = r[tempi] - r[tempj];
-            rij[1] = r[tempi+1] - r[tempj+1];
-            rij[2] = r[tempi+2] - r[tempj+2];
+                x = r[tempi] - r[tempj];
+                y = r[tempi+1] - r[tempj+1];
+                z = r[tempi+2] - r[tempj+2];
 
-            temp0 = rij[0];
-            temp1 = rij[1];
-            temp2 = rij[2];
-            rSqd = temp0 * temp0 + temp1 * temp1 + temp2 * temp2;
-            rSqd3 = rSqd * rSqd * rSqd;
-            rSqd6 = rSqd3*rSqd3;
-            f = 24*( (2-rSqd3) / (rSqd6*rSqd) );
-            for (k = 0; k < 3; k++) {
-                //  from F = ma, where m = 1 in natural units!
-                temp = rij[k] * f;
-                a[tempi+k] += temp;
-                a[tempj+k] -= temp;
+                rSqd = x*x + y*y + z*z;
+                rSqd3 = rSqd * rSqd * rSqd;
+                rSqd6 = rSqd3 * rSqd3;
+
+                Pot += 4*((1-rSqd3) / rSqd6);
+
+                if(j>i && i != N-1) {
+                    f = 24*( (2-rSqd3) / (rSqd6*rSqd) );
+
+                    temp = x*f;
+                    a[tempi] += temp;
+                    a[tempj] -= temp;
+
+                    temp = y*f;
+                    a[tempi+1] += temp;
+                    a[tempj+1] -= temp;
+
+                    temp = z*f;
+                    a[tempi+2] += temp;
+                    a[tempj+2] -= temp;
+                }
             }
         }
     }
+
+    PE = Pot;
 }
 
 
@@ -515,7 +491,7 @@ double VelocityVerlet(double dt, int iter, FILE *fp) {
     }
 
     //  Update accellerations from updated positions
-    computeAccelerations();
+    computeAccelerationsAndPotential();
 
     //  Update velocity with updated acceleration
     for (i=0; i<N; i++) {
