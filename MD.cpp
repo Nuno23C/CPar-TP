@@ -375,19 +375,6 @@ void initialize() {
 
     // Call function to initialize velocities
     initializeVelocities();
-
-    /***********************************************
-     *   Uncomment if you want to see what the initial positions and velocities are
-     printf("  Printing initial positions!\n");
-     for (i=0; i<N; i++) {
-     printf("  %6.3e  %6.3e  %6.3e\n",r[i][0],r[i][1],r[i][2]);
-     }
-
-     printf("  Printing initial velocities!\n");
-     for (i=0; i<N; i++) {
-     printf("  %6.3e  %6.3e  %6.3e\n",v[i][0],v[i][1],v[i][2]);
-     }
-     */
 }
 
 
@@ -404,15 +391,14 @@ void MeanSquaredVelocityAndKinetic() {
             temp = v[tempi + j];
             temp1 = temp * temp;
             msv += temp1;
-            vk += temp1;
         }
+        vk += msv;
 
-		kin += msv/2.0;
+		kin += msv * 0.5;
     }
-	v2 = vk/N;
 
     KE = kin;
-    mvs = v2;
+    mvs = vk/N;
 }
 
 
@@ -482,7 +468,6 @@ double VelocityVerlet(double dt, int iter, FILE *fp) {
 
             v[tempi+j] += 0.5*temp*dt;
         }
-        //printf("  %i  %6.4e   %6.4e   %6.4e\n",i,r[i][0],r[i][1],r[i][2]);
     }
 
     //  Update accellerations from updated positions
