@@ -252,6 +252,8 @@ int main() {
         NumTime=200;
     }
 
+    // #pragma omp parallel num_threads(100)
+
     //  Put all the atoms in simple crystal lattice and give them random velocities
     //  that corresponds to the initial temperature we have specified
     initialize();
@@ -407,14 +409,13 @@ void computeAccelerationsAndPotential() {
     int i, j, tempi, tempj;
     double Pot, f, x, y, z, rSqd, rSqd3, rSqd6, temp;
 
-    for (i = 0; i < N; i++) { // set all accelerations to zero
-        tempi = i*3;
-        a[tempi+0] = 0;
-        a[tempi+1] = 0;
-        a[tempi+2] = 0;
+    #pragma omp for schedule(dynamic, 10)
+    for (i = 0; i < N*3; i++) { // set all accelerations to zero
+        a[i] = 0;
     }
 
     Pot=0.;
+    #pragma omp parallel for reduction(+ : Pot)
     for (i=0; i<N; i++) {
         tempi = i*3;
         for (j=0; j<N; j++) {

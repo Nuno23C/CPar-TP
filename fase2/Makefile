@@ -1,18 +1,18 @@
 CC = gcc
 SRC = src/
-CFLAGS = -Wall -pg -O2 -lm -funroll-loops -ffast-math -ftree-vectorize -mfpmath=sse -march=x86-64
+CFLAGS = -Wall -pg -O2 -lm -mfpmath=sse -funroll-loops -ffast-math -ftree-vectorize -march=x86-64 -fno-omit-frame-pointer -fopenmp
 
 .DEFAULT_GOAL = all
 
 all: MDseq.exe MDpar.exe
 
-MD_seq: $(SRC)/MDseq.cpp
+MDseq: $(SRC)/MDseq.cpp
 	module load gcc/11.2.0;
-	$(CC) $(CFLAGS) $(SRC)MDseq.cpp -lm -o MD_seq.exe
+	$(CC) $(CFLAGS) $(SRC)MDseq.cpp -lm -o MDseq.exe
 
-MD_par: $(SRC)/MDpar.cpp
+MDpar: $(SRC)/MDpar.cpp
 	module load gcc/11.2.0;
-	$(CC) $(CFLAGS) $(SRC)MDpar.cpp -lm -fopenmp -o MD_par.exe
+	$(CC) $(CFLAGS) $(SRC)MDpar.cpp -lm -fopenmp -o MDpar.exe
 
 clean:
 	rm -f ./MD*.exe
@@ -22,17 +22,17 @@ clean:
 	rm -f ./cp_output.txt
 	rm -f ./cp_traj.xyz
 
-run_seq:
-	srun --partition=cpar --cpus-per-task=8 perf stat -e cache-misses,instructions,cycles ./MD_seq.exe < inputdata.txt
+run:
+	sbatch run.sh $(file)
 
-run_avg_seq:
-	srun --partition=cpar --cpus-per-task=8 perf stat -r 10 -e cache-references,cache-misses,instructions,cycles ./MD_seq.exe < inputdata.txt
+perf_record:
+	sbatch perf_record.sh $(file)
 
-run_par:
-	srun --partition=cpar --cpus-per-task=8 perf stat -e cache-misses,instructions,cycles ./MD_par.exe < inputdata.txt
+perf_stat:
+	sbatch perf_stat.sh $(file)
 
-run_avg_par:
-	srun --partition=cpar --cpus-per-task=8 perf stat -r 10 -e cache-references,cache-misses,instructions,cycles ./MD_par.exe < inputdata.txt
+gprof:
+	sbatch gprof.sh
 
 compare:
 	python compare.py
