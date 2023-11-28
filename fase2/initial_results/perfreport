@@ -1,0 +1,28 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 12027
+#
+# Samples: 201K of event 'cycles:uppp'
+# Event count (approx.): 118813876527
+#
+# Overhead       Samples  Command    Shared Object     Symbol                              
+# ........  ............  .........  ................  ....................................
+#
+    99.80%        201324  MDseq.exe  MDseq.exe         [.] computeAccelerationsAndPotential
+     0.17%           345  MDseq.exe  [unknown]         [k] 0xffffffffab38c4ef
+     0.01%            30  MDseq.exe  MDseq.exe         [.] VelocityVerlet
+     0.01%            14  MDseq.exe  MDseq.exe         [.] MeanSquaredVelocityAndKinetic
+     0.00%             5  MDseq.exe  [unknown]         [k] 0xffffffffab396098
+     0.00%             3  MDseq.exe  libc-2.17.so      [.] __mpn_divrem
+     0.00%             2  MDseq.exe  libc-2.17.so      [.] _IO_file_xsputn@@GLIBC_2.2.5
+     0.00%             2  MDseq.exe  MDseq.exe         [.] gaussdist
+     0.00%             2  MDseq.exe  libc-2.17.so      [.] _mcount
+     0.00%             1  MDseq.exe  libc-2.17.so      [.] __random_r
+     0.00%             1  MDseq.exe  libc-2.17.so      [.] __mpn_rshift
+     0.00%             1  MDseq.exe  ld-2.17.so        [.] malloc@plt
+
+
+#
+# (Tip: Boolean options have negative forms, e.g.: perf report --no-children)
+#

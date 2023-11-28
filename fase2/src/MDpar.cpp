@@ -52,9 +52,13 @@ double r[MAXPART*3];
 double v[MAXPART*3];
 //  Acceleration
 double a[MAXPART*3];
+// Auxiliary Acceleration array
+double **a_aux;
+
+int num_threads;
 
 // atom type
-char atype[2];
+char atype[10];
 //  Function prototypes
 //  initialize positions on simple cubic lattice, also calls function to initialize velocities
 void initialize();
@@ -205,6 +209,14 @@ int main() {
     scanf("%lf",&rho);
 
     N = 5000;
+
+    num_threads = omp_get_max_threads();
+
+    a_aux = (double **) malloc(num_threads * sizeof(double *));
+    // for (i = 0; i < num_threads; i++) {
+    //     a_aux[i] = (double *)calloc(N*3, sizeof(double));
+    // }
+
     Vol = N/(rho*NA);
 
     Vol /= VolFac;
@@ -347,6 +359,11 @@ int main() {
     fclose(ofp);
     fclose(afp);
 
+    for (i = 0; i < num_threads; i++) {
+        free(a_aux[i]);
+    }
+    free(a_aux);
+
     return 0;
 }
 
@@ -406,49 +423,63 @@ void MeanSquaredVelocityAndKinetic() {
 
 
 void computeAccelerationsAndPotential() {
-    int i, j, tempi, tempj;
-    double Pot, f, x, y, z, rSqd, rSqd3, rSqd6, temp;
+    int i, j, tid,tempi,tempj;
+    double Pot, f, rSqd, rSqd6, rSqd3, x, y, z, temp;
 
-    #pragma omp for schedule(dynamic, 10)
-    for (i = 0; i < N*3; i++) { // set all accelerations to zero
+    for (i = 0; i < N*3; i++) {
         a[i] = 0;
     }
 
+    for(i = 0; i < num_threads; i++) {
+        a_aux[i] = (double*)calloc(N*3, sizeof(double));
+    }
+
     Pot=0.;
-    #pragma omp parallel for reduction(+ : Pot)
-    for (i=0; i<N; i++) {
-        tempi = i*3;
-        for (j=0; j<N; j++) {
-            if(j!=i) {
-                tempj = j*3;
-                rSqd = 0;
 
-                x = r[tempi] - r[tempj];
-                y = r[tempi+1] - r[tempj+1];
-                z = r[tempi+2] - r[tempj+2];
+    #pragma omp parallel num_threads(num_threads) private(i, j, f, rSqd, rSqd3, rSqd6, x, y, z, temp,tempi,tempj, tid)
+    {
+        #pragma omp for reduction(+:Pot) schedule(static)
+        for (i = 0; i < N; i++) {
+            tid = omp_get_thread_num();
+            tempi = i*3;
+            for (j = 0; j < N; j++) {
+                tempj=j*3;
+                if (i!=j){
+                    rSqd = 0;
 
-                rSqd = x*x + y*y + z*z;
-                rSqd3 = rSqd * rSqd * rSqd;
-                rSqd6 = rSqd3 * rSqd3;
+                    x = r[tempi] - r[tempj];
+                    y = r[tempi+1] - r[tempj+1];
+                    z = r[tempi+2] - r[tempj+2];
 
-                Pot += 4*((1-rSqd3) / rSqd6);
+                    rSqd = x*x + y*y + z*z;
+                    rSqd3 = rSqd * rSqd * rSqd;
+                    rSqd6 = rSqd3 * rSqd3;
 
-                if(j>i && i != N-1) {
-                    f = 24*( (2-rSqd3) / (rSqd6*rSqd) );
+                    Pot += 4*((1-rSqd3) / rSqd6);
 
-                    temp = x*f;
-                    a[tempi] += temp;
-                    a[tempj] -= temp;
+                    if (j > i && i != N-1) {
+                        f = 24*( (2-rSqd3) / (rSqd6*rSqd) );
 
-                    temp = y*f;
-                    a[tempi+1] += temp;
-                    a[tempj+1] -= temp;
+                        temp = x*f;
+                        a_aux[tid][tempi] += temp;
+                        a_aux[tid][tempj] -= temp;
 
-                    temp = z*f;
-                    a[tempi+2] += temp;
-                    a[tempj+2] -= temp;
+                        temp = y*f;
+                        a_aux[tid][tempi + 1] += temp;
+                        a_aux[tid][tempj + 1] -= temp;
+
+                        temp = z*f;
+                        a_aux[tid][tempi + 2] += temp;
+                        a_aux[tid][tempj + 2] -= temp;
+                    }
                 }
             }
+        }
+    }
+
+    for (i = 0; i < N*3; i++) {
+        for (j = 0; j < num_threads; j++) {
+            a[i] += a_aux[j][i];
         }
     }
 

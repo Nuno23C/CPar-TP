@@ -1,0 +1,79 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 2038
+#
+# Samples: 646K of event 'cycles:uppp'
+# Event count (approx.): 374209461838
+#
+# Overhead       Samples  Command    Shared Object     Symbol                              
+# ........  ............  .........  ................  ....................................
+#
+    63.64%        406481  MDpar.exe  MDpar.exe         [.] computeAccelerationsAndPotential
+     9.96%         72934  MDpar.exe  [unknown]         [k] 0xffffffffab38c4ef
+     7.81%         49464  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000018b1f
+     5.58%         35123  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000018c97
+     3.70%         23398  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000018b21
+     3.21%         20180  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000018c99
+     2.42%         15316  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000018b10
+     2.38%         14936  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000018c88
+     0.54%          3380  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000018c8b
+     0.20%          1263  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000018b1c
+     0.18%          1158  MDpar.exe  MDpar.exe         [.] computeAccelerationsAndPotential
+     0.16%          1042  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000018b13
+     0.13%          1340  MDpar.exe  [unknown]         [k] 0xffffffffab396098
+     0.04%           242  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000018c94
+     0.02%           106  MDpar.exe  MDpar.exe         [.] VelocityVerlet
+     0.01%            84  MDpar.exe  libc-2.17.so      [.] __memset_sse2
+     0.00%            15  MDpar.exe  MDpar.exe         [.] MeanSquaredVelocityAndKinetic
+     0.00%             5  MDpar.exe  libc-2.17.so      [.] _int_malloc
+     0.00%             5  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000018bbb
+     0.00%             5  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000018dc0
+     0.00%             5  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000018b18
+     0.00%             5  MDpar.exe  libgomp.so.1.0.0  [.] 0x00000000000163e0
+     0.00%             5  MDpar.exe  libc-2.17.so      [.] __mcount_internal
+     0.00%             4  MDpar.exe  libc-2.17.so      [.] profil_counter
+     0.00%             5  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000018b3d
+     0.00%             4  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000018b31
+     0.00%             3  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000018c90
+     0.00%             3  MDpar.exe  libc-2.17.so      [.] __GI___printf_fp_l
+     0.00%             3  MDpar.exe  libgomp.so.1.0.0  [.] 0x00000000000163fb
+     0.00%             3  MDpar.exe  MDpar.exe         [.] mcount@plt
+     0.00%             3  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000018b37
+     0.00%             2  MDpar.exe  libgomp.so.1.0.0  [.] omp_get_num_threads
+     0.00%             2  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000018cab
+     0.00%             2  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000018dcb
+     0.00%             2  MDpar.exe  libc-2.17.so      [.] __libc_calloc
+     0.00%             2  MDpar.exe  libc-2.17.so      [.] hack_digit.13666
+     0.00%             3  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000016411
+     0.00%             1  MDpar.exe  libc-2.17.so      [.] sysmalloc
+     0.00%             1  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000018b66
+     0.00%             1  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000016b43
+     0.00%             1  MDpar.exe  libc-2.17.so      [.] __isnan
+     0.00%             1  MDpar.exe  libc-2.17.so      [.] __restore_rt
+     0.00%             1  MDpar.exe  libc-2.17.so      [.] vfprintf
+     0.00%             1  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000016b86
+     0.00%             1  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000018ccb
+     0.00%             1  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000018ad8
+     0.00%             1  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000016bf2
+     0.00%             1  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000016400
+     0.00%             1  MDpar.exe  MDpar.exe         [.] GOMP_parallel_end@plt
+     0.00%             1  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000018b6c
+     0.00%             1  MDpar.exe  libgomp.so.1.0.0  [.] 0x00000000000177b0
+     0.00%             1  MDpar.exe  libc-2.17.so      [.] __mpn_divrem
+     0.00%             1  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000016405
+     0.00%             1  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000018cb5
+     0.00%             1  MDpar.exe  libgomp.so.1.0.0  [.] 0x000000000000de87
+     0.00%             1  MDpar.exe  libgomp.so.1.0.0  [.] 0x0000000000018de1
+     0.00%             1  MDpar.exe  ld-2.17.so        [.] _dl_lookup_symbol_x
+     0.00%             1  MDpar.exe  MDpar.exe         [.] gaussdist
+     0.00%             1  MDpar.exe  libm-2.17.so      [.] __ieee754_log_avx
+     0.00%             4  MDpar.exe  libc-2.17.so      [.] __clone
+     0.00%             1  MDpar.exe  libc-2.17.so      [.] __GI_____strtod_l_internal
+     0.00%             1  MDpar.exe  libgomp.so.1.0.0  [.] 0x00000000000163f6
+     0.00%             1  MDpar.exe  libc-2.17.so      [.] __ctype_init
+
+
+#
+# (Tip: Show individual samples with: perf script)
+#

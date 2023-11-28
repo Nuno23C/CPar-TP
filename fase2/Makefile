@@ -17,13 +17,17 @@ MDpar: $(SRC)/MDpar.cpp
 clean:
 	rm -f ./MD*.exe
 	rm -f ./gprof.txt
-	rm -f ./gmon.out
+	rm -f ./*.out
 	rm -f ./cp_average.txt
 	rm -f ./cp_output.txt
 	rm -f ./cp_traj.xyz
+	rm -f ./perfreport
 
 run:
 	sbatch run.sh $(file)
+
+test:
+	sbatch test.sh
 
 perf_record:
 	sbatch perf_record.sh $(file)
