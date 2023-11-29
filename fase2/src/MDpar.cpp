@@ -41,6 +41,8 @@ double kBSI = 1.38064852e-23;  // m^2*kg/(s^2*K)
 //  Size of box, which will be specified in natural units
 double L;
 
+double half_dt;
+double three_dt;
 //  Initial Temperature in Natural Units
 double Tinit;  //2;
 //  Vectors!
@@ -213,9 +215,6 @@ int main() {
     num_threads = omp_get_max_threads();
 
     a_aux = (double **) malloc(num_threads * sizeof(double *));
-    // for (i = 0; i < num_threads; i++) {
-    //     a_aux[i] = (double *)calloc(N*3, sizeof(double));
-    // }
 
     Vol = N/(rho*NA);
 
@@ -264,7 +263,8 @@ int main() {
         NumTime=200;
     }
 
-    // #pragma omp parallel num_threads(100)
+    half_dt = dt*0.5;
+    three_dt = 3*dt*L*L;
 
     //  Put all the atoms in simple crystal lattice and give them random velocities
     //  that corresponds to the initial temperature we have specified
@@ -421,7 +421,6 @@ void MeanSquaredVelocityAndKinetic() {
     mvs = vk/N;
 }
 
-
 void computeAccelerationsAndPotential() {
     int i, j, tid,tempi,tempj;
     double Pot, f, rSqd, rSqd6, rSqd3, x, y, z, temp;
@@ -436,7 +435,7 @@ void computeAccelerationsAndPotential() {
 
     Pot=0.;
 
-    #pragma omp parallel num_threads(num_threads) private(i, j, f, rSqd, rSqd3, rSqd6, x, y, z, temp,tempi,tempj, tid)
+    #pragma omp parallel num_threads(num_threads) private(i, j, f, rSqd, rSqd3, rSqd6, x, y, z, temp, tempi, tempj, tid)
     {
         #pragma omp for reduction(+:Pot) schedule(static)
         for (i = 0; i < N; i++) {
@@ -483,22 +482,22 @@ void computeAccelerationsAndPotential() {
         }
     }
 
+
     PE = Pot;
 }
-
 
 // returns sum of dv/dt*m/A (aka Pressure) from elastic collisions with walls
 double VelocityVerlet(double dt, int iter, FILE *fp) {
     int i, j, tempi;
-    double psum = 0., temp;
+    double psum = 0.,temp, aux;
 
     for (i=0; i<N; i++) {
         tempi=i*3;
         for (j=0; j<3; j++) {
-            temp = a[tempi+j];
-            r[tempi+j] += v[tempi+j]*dt + 0.5*temp*dt*dt;
+            aux = a[tempi+j]*half_dt;
+            r[tempi+j] += (v[tempi+j]+aux)*dt; //changed
 
-            v[tempi+j] += 0.5*temp*dt;
+            v[tempi+j] += aux;
         }
     }
 
@@ -509,30 +508,29 @@ double VelocityVerlet(double dt, int iter, FILE *fp) {
     for (i=0; i<N; i++) {
         if (i != N) {
             tempi = i*3;
-            v[tempi] += 0.5*a[tempi]*dt;
-            v[tempi + 1] += 0.5*a[tempi + 1]*dt;
-            v[tempi + 2] += 0.5*a[tempi + 2]*dt;
+            v[tempi] += a[tempi]*half_dt;
+            v[tempi + 1] += a[tempi + 1]*half_dt;
+            v[tempi + 2] += a[tempi + 2]*half_dt;
         }
     }
 
     // Elastic walls
-    double constant = 2/dt;
     for (i=0; i<N; i++) {
         tempi=i*3;
         for (j=0; j<3; j++) {
             temp = r[tempi+j];
             if (temp < 0.) {
                 v[tempi+j] *=-1.; //- elastic walls
-                psum += constant * fabs(v[tempi+j]);  // contribution to pressure from "left" walls
+                psum += fabs(v[tempi+j]);  // contribution to pressure from "left" walls
             }
             if (temp >= L) {
                 v[tempi+j]*=-1.;  //- elastic walls
-                psum += constant * fabs(v[tempi+j]);  // contribution to pressure from "right" walls
+                psum += fabs(v[tempi+j]);  // contribution to pressure from "right" walls
             }
         }
     }
 
-    return psum/(6*L*L);
+    return psum/three_dt;
 }
 
 
