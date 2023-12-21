@@ -18,4 +18,4 @@ clean:
 	rm -f ./MD*.exe
 
 run:
-	./MDcuda < inputdata.txt
+	./MDcuda.exe < inputdata.txt
