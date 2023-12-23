@@ -206,23 +206,34 @@ void MeanSquaredVelocityAndKinetic() {
 }
 
 
+__device__
+double atomicAddDouble(double* address, double val)
+{
+    unsigned long long int* address_as_ull =
+                              (unsigned long long int*)address;
+    unsigned long long int old = *address_as_ull, assumed;
+    do {
+        assumed = old;
+        old = atomicCAS(address_as_ull, assumed,
+                        __double_as_longlong(val +
+                               __longlong_as_double(assumed)));
+    } while (assumed != old);
+    return __longlong_as_double(old);
+}
+
+
 __global__
 void computeAccelerationsAndPotential(int N, double *r, double *a, double* d_PE) {
     int i =  blockIdx.x * blockDim.x + threadIdx.x;
     int j, tempi, tempj;
-    double Pot, f, x, y, z, rSqd, rSqd3, rSqd6, temp;
-
+    double Pot = 0.0, f, x, y, z, rSqd, rSqd3, rSqd6, temp;
 
     if(i<N) {
         tempi = i*3;
         a[tempi+0] = 0;
         a[tempi+1] = 0;
         a[tempi+2] = 0;
-    }
 
-    Pot=0.;
-    if(i<N) {
-        tempi = i*3;
         for (j=0; j<N; j++) {
             if(j!=i) {
                 tempj = j*3;
@@ -241,23 +252,31 @@ void computeAccelerationsAndPotential(int N, double *r, double *a, double* d_PE)
                 if(j>i && i != N-1) {
                     f = 24*( (2-rSqd3) / (rSqd6*rSqd) );
 
-                    temp = x*f;
-                    a[tempi] += temp;
-                    a[tempj] -= temp;
+                    // temp = x*f;
+                    // a[tempi] += temp;
+                    // a[tempj] -= temp;
 
-                    temp = y*f;
-                    a[tempi+1] += temp;
-                    a[tempj+1] -= temp;
+                    // temp = y*f;
+                    // a[tempi+1] += temp;
+                    // a[tempj+1] -= temp;
 
-                    temp = z*f;
-                    a[tempi+2] += temp;
-                    a[tempj+2] -= temp;
+                    // temp = z*f;
+                    // a[tempi+2] += temp;
+                    // a[tempj+2] -= temp;
+                    atomicAddDouble(&a[tempi], x*f);
+                    atomicAddDouble(&a[tempj], -x*f);
+
+                    atomicAddDouble(&a[tempi+1], y*f);
+                    atomicAddDouble(&a[tempj+1], -y*f);
+
+                    atomicAddDouble(&a[tempi+2], z*f);
+                    atomicAddDouble(&a[tempj+2], -z*f);
                 }
             }
         }
+        // *d_PE = Pot;
+        atomicAddDouble(d_PE, Pot);
     }
-
-    *d_PE = Pot;
 }
 
 // returns sum of dv/dt*m/A (aka Pressure) from elastic collisions with walls
@@ -281,6 +300,7 @@ double VelocityVerlet(double dt, int iter, FILE *fp) {
     cudaMemcpy(d_PE, &PE, sizeof(double), cudaMemcpyHostToDevice);
 
     computeAccelerationsAndPotential<<<NUM_BLOCKS, NUM_THREADS_PER_BLOCK>>>(N, d_a, d_r, d_PE);
+    // cudaDeviceSynchronize();
 
     cudaMemcpy(a, d_a, 3 * N * sizeof(double), cudaMemcpyDeviceToHost);
     cudaMemcpy(&PE, &d_PE, sizeof(double), cudaMemcpyDeviceToHost);
@@ -498,9 +518,6 @@ int main() {
     //  that corresponds to the initial temperature we have specified
     initialize();
 
-    // cudaMalloc(&d_r, MAXPART*3 * sizeof(double));
-    // cudaMalloc(&d_a, MAXPART*3 * sizeof(double));
-    // cudaMalloc(d_PE, sizeof(double));
     cudaMalloc((void**)&d_r, MAXPART*3 * sizeof(double));
     cudaMalloc((void**)&d_a, MAXPART*3 * sizeof(double));
     cudaMalloc((void**)&d_PE, sizeof(double));
@@ -512,6 +529,7 @@ int main() {
     cudaMemcpy(d_PE, &PE, sizeof(double), cudaMemcpyHostToDevice);
 
     computeAccelerationsAndPotential<<<NUM_BLOCKS, NUM_THREADS_PER_BLOCK>>>(N, d_a, d_r, d_PE);
+    // cudaDeviceSynchronize();
 
     // copiar os resultados para o CPU
     cudaMemcpy(a, d_a, 3 * N * sizeof(double), cudaMemcpyDeviceToHost);
