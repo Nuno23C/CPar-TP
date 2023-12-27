@@ -1,5 +1,6 @@
 #!/bin/bash
-#SBATCH --time=10:00
-#SBATCH --cpus-per-task=40
+#SBATCH --time=3:00
 #SBATCH --partition=cpar
-perf stat -M cpi ./$1.exe < inputdata.txt
+#SBATCH --constraint=k20
+nvcc --version
+nvprof ./bin/MDcuda

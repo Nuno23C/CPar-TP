@@ -54,9 +54,6 @@ double v[MAXPART*3];
 //  Acceleration
 double a[MAXPART*3];
 
-// Device variables
-double *d_a, *d_r, *d_PE;
-
 int num_threads;
 
 // atom type
@@ -206,34 +203,23 @@ void MeanSquaredVelocityAndKinetic() {
 }
 
 
-__device__
-double atomicAddDouble(double* address, double val)
-{
-    unsigned long long int* address_as_ull =
-                              (unsigned long long int*)address;
-    unsigned long long int old = *address_as_ull, assumed;
-    do {
-        assumed = old;
-        old = atomicCAS(address_as_ull, assumed,
-                        __double_as_longlong(val +
-                               __longlong_as_double(assumed)));
-    } while (assumed != old);
-    return __longlong_as_double(old);
-}
-
-
 __global__
 void computeAccelerationsAndPotential(int N, double *r, double *a, double* d_PE) {
-    int i =  blockIdx.x * blockDim.x + threadIdx.x;
+    int i =  blockIdx.x * blockDim.x + threadIdx.x; // indice da thread
     int j, tempi, tempj;
-    double Pot = 0.0, f, x, y, z, rSqd, rSqd3, rSqd6, temp;
+    double Pot, f, x, y, z, rSqd, rSqd3, rSqd6, temp;
+
 
     if(i<N) {
         tempi = i*3;
         a[tempi+0] = 0;
         a[tempi+1] = 0;
         a[tempi+2] = 0;
+    }
 
+    Pot=0.;
+    if(i<N) {
+        tempi = i*3;
         for (j=0; j<N; j++) {
             if(j!=i) {
                 tempj = j*3;
@@ -252,58 +238,86 @@ void computeAccelerationsAndPotential(int N, double *r, double *a, double* d_PE)
                 if(j>i && i != N-1) {
                     f = 24*( (2-rSqd3) / (rSqd6*rSqd) );
 
-                    // temp = x*f;
-                    // a[tempi] += temp;
-                    // a[tempj] -= temp;
+                    temp = x*f;
+                    a[tempi] += temp;
+                    a[tempj] -= temp;
 
-                    // temp = y*f;
-                    // a[tempi+1] += temp;
-                    // a[tempj+1] -= temp;
+                    temp = y*f;
+                    a[tempi+1] += temp;
+                    a[tempj+1] -= temp;
 
-                    // temp = z*f;
-                    // a[tempi+2] += temp;
-                    // a[tempj+2] -= temp;
-                    atomicAddDouble(&a[tempi], x*f);
-                    atomicAddDouble(&a[tempj], -x*f);
-
-                    atomicAddDouble(&a[tempi+1], y*f);
-                    atomicAddDouble(&a[tempj+1], -y*f);
-
-                    atomicAddDouble(&a[tempi+2], z*f);
-                    atomicAddDouble(&a[tempj+2], -z*f);
+                    temp = z*f;
+                    a[tempi+2] += temp;
+                    a[tempj+2] -= temp;
                 }
             }
         }
-        // *d_PE = Pot;
-        atomicAddDouble(d_PE, Pot);
     }
+    *d_PE = Pot;
 }
+
+void acc_pot_aux() {
+    double *d_r, *d_a, *d_PE;
+    cudaMalloc((void**)&d_r, N*3 * sizeof(double));
+    cudaMalloc((void**)&d_a, N*3 * sizeof(double));
+    cudaMalloc((void**)&d_PE, sizeof(double));
+
+    checkCUDAError("allocations");
+
+    NUM_BLOCKS = N / NUM_THREADS_PER_BLOCK + 1;
+
+    cudaMemcpy(d_r, r, 3 * N * sizeof(double), cudaMemcpyHostToDevice);
+    //cudaMemcpy(d_r, r, 3 * N * sizeof(double), cudaMemcpyHostToDevice);
+    //cudaMemcpy(d_PE, &PE, sizeof(double), cudaMemcpyHostToDevice);
+    cudaMemset(d_a, 0, sizeof(double) * N * 3);
+    cudaMemset(d_PE, 0, sizeof(double) );
+
+    computeAccelerationsAndPotential<<<NUM_BLOCKS, NUM_THREADS_PER_BLOCK>>>(N, d_a, d_r, d_PE);
+    checkCUDAError("computeAccAndPotential");
+
+
+    // copiar os resultados para o CPU (host)
+    cudaMemcpy(a, d_a, 3 * N * sizeof(double), cudaMemcpyDeviceToHost);
+    cudaMemcpy(&PE, d_PE, sizeof(double), cudaMemcpyDeviceToHost);
+    cudaMemcpy(r, d_r, 3 * N * sizeof(double), cudaMemcpyDeviceToHost);
+    checkCUDAError("memcopy final");
+
+    // free memory on the GPU
+    cudaFree(d_r);
+    cudaFree(d_a);
+    cudaFree(d_PE);
+
+
+}
+
+
 
 // returns sum of dv/dt*m/A (aka Pressure) from elastic collisions with walls
 double VelocityVerlet(double dt, int iter, FILE *fp) {
     int i, j, tempi;
     double psum = 0.,temp, aux;
 
+
     for (i=0; i<N; i++) {
         tempi=i*3;
         for (j=0; j<3; j++) {
             aux = a[tempi+j]*half_dt;
             r[tempi+j] += (v[tempi+j]+aux)*dt; //changed
-
             v[tempi+j] += aux;
         }
     }
 
-    //  Update accellerations from updated positions
-    cudaMemcpy(d_a, a, 3 * N * sizeof(double), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_r, r, 3 * N * sizeof(double), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_PE, &PE, sizeof(double), cudaMemcpyHostToDevice);
+    // //  Update accellerations from updated positions
+    // cudaMemcpy(d_r, r, 3 * N * sizeof(double), cudaMemcpyHostToDevice);
+    // cudaMemcpy(d_a, a, 3 * N * sizeof(double), cudaMemcpyHostToDevice);
+    
+    // computeAccelerationsAndPotential<<<NUM_BLOCKS, NUM_THREADS_PER_BLOCK>>>(N, d_a, d_r, d_PE);
 
-    computeAccelerationsAndPotential<<<NUM_BLOCKS, NUM_THREADS_PER_BLOCK>>>(N, d_a, d_r, d_PE);
-    // cudaDeviceSynchronize();
 
-    cudaMemcpy(a, d_a, 3 * N * sizeof(double), cudaMemcpyDeviceToHost);
-    cudaMemcpy(&PE, &d_PE, sizeof(double), cudaMemcpyDeviceToHost);
+    // cudaMemcpy(a, d_a, 3 * N * sizeof(double), cudaMemcpyDeviceToHost);
+    // cudaMemcpy(r, d_r, 3 * N * sizeof(double), cudaMemcpyDeviceToHost);
+    // cudaMemcpy(&PE, &d_PE, sizeof(double), cudaMemcpyDeviceToHost);
+    acc_pot_aux();
 
     //  Update velocity with updated acceleration
     for (i=0; i<N; i++) {
@@ -336,6 +350,7 @@ double VelocityVerlet(double dt, int iter, FILE *fp) {
 
 
 
+
 int main() {
     //  variable delcarations
     int i;
@@ -357,7 +372,7 @@ int main() {
     strcpy(afn,prefix);
     strcat(afn,"_average.txt");
 
-    printf("\n  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+    printf("\n  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!half_dt!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
     printf("                  TITLE ENTERED AS '%s'\n",prefix);
     printf("  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 
@@ -518,22 +533,7 @@ int main() {
     //  that corresponds to the initial temperature we have specified
     initialize();
 
-    cudaMalloc((void**)&d_r, MAXPART*3 * sizeof(double));
-    cudaMalloc((void**)&d_a, MAXPART*3 * sizeof(double));
-    cudaMalloc((void**)&d_PE, sizeof(double));
-
-    NUM_BLOCKS = N / NUM_THREADS_PER_BLOCK + 1;
-
-    cudaMemcpy(d_a, a, 3 * N * sizeof(double), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_r, r, 3 * N * sizeof(double), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_PE, &PE, sizeof(double), cudaMemcpyHostToDevice);
-
-    computeAccelerationsAndPotential<<<NUM_BLOCKS, NUM_THREADS_PER_BLOCK>>>(N, d_a, d_r, d_PE);
-    // cudaDeviceSynchronize();
-
-    // copiar os resultados para o CPU
-    cudaMemcpy(a, d_a, 3 * N * sizeof(double), cudaMemcpyDeviceToHost);
-    cudaMemcpy(&PE, d_PE, sizeof(double), cudaMemcpyDeviceToHost);
+    acc_pot_aux();
 
     // Print number of particles to the trajectory file
     fprintf(tfp,"%i\n",N);
@@ -590,7 +590,7 @@ int main() {
         Tavg += Temp;
         Pavg += Press;
 
-        fprintf(ofp,"  %8.4e  %20.8f  %20.8f %20.8f  %20.8f  %20.8f \n",i*dt*timefac,Temp,Press,KE, PE, KE+PE);
+        fprintf(ofp," %8.4e  %20.8f  %20.8f %20.8f  %20.8f  %20.8f \n",i*dt*timefac,Temp,Press,KE, PE, KE+PE);
     }
 
     // Because we have calculated the instantaneous temperature and pressure,
@@ -618,11 +618,7 @@ int main() {
     fclose(ofp);
     fclose(afp);
 
-    // free memory on the GPU
-    cudaFree(d_r);
-    cudaFree(d_a);
-    cudaFree(d_PE);
-
     return 0;
 }
+
 
