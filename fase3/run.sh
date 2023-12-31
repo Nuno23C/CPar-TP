@@ -1,6 +1,7 @@
 #!/bin/bash
-#SBATCH --time=3:00
+#SBATCH --time=5:00
 #SBATCH --partition=cpar
 #SBATCH --constraint=k20
+#SBATCH --ntasks=1
 nvcc --version
-nvprof ./bin/MDcuda
+nvprof ./bin/MDcuda < inputdata.txt

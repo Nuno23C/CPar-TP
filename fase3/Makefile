@@ -10,7 +10,7 @@ BIN_NAME = MDcuda
 CXX = nvcc
 LD  = nvcc
 
-CXXFLAGS   = -O2 -g -std=c++11 -arch=sm_35 -Wno-deprecated-gpu-targets 
+CXXFLAGS   = -O2 -g -std=c++11 -arch=sm_35 -Wno-deprecated-gpu-targets
 
 
 SRC_DIR = src
@@ -34,9 +34,8 @@ $(BUILD_DIR)/%.o: %.cu
 $(BIN_DIR)/$(BIN_NAME): $(OBJ)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $(OBJ) $(LIBS)
 
-modules:
-	module load gcc/7.2.0;\
-    module load cuda/11.3.1;
+modules: module load gcc/7.2.0;\
+	module load cuda/11.3.1
 
 checkdirs:
 	@mkdir -p $(BUILD_DIR)
@@ -45,7 +44,7 @@ checkdirs:
 all:checkdirs $(BIN_DIR)/$(BIN_NAME)
 
 clean:
-	rm -f $(BUILD_DIR)/* $(BIN_DIR)/* 
+	rm -f $(BUILD_DIR)/* $(BIN_DIR)/*
 
 run:
 	sbatch run.sh
