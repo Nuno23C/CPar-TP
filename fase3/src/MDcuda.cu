@@ -26,12 +26,18 @@
 #include "MDcuda.h"
 #include <cuda_runtime.h>
 
-#define N 5000
-#define NUM_THREADS_PER_BLOCK 50
-#define NUM_BLOCKS 100
+#define NUM_THREADS_PER_BLOCK 256
+
+const int N=5000;
+const int NUM_BLOCKS = (N + NUM_THREADS_PER_BLOCK - 1)/ NUM_THREADS_PER_BLOCK;
 
 
-double KE, PE, mvs;
+//  Lennard-Jones parameters in natural units!
+double sigma = 1.;
+double epsilon = 1.;
+double m = 1.;
+double kB = 1.;
+double Pot=0;
 
 double NA = 6.022140857e23;
 double kBSI = 1.38064852e-23;  // m^2*kg/(s^2*K)
@@ -44,18 +50,18 @@ double Tinit;
 
 double half_dt, three_dt;
 
-//  Vectors!
 const int MAXPART=5001;
-
 //  Position
-double* r = (double *) malloc(MAXPART*3*sizeof(double));
+double r[MAXPART][3];
 //  Velocity
-double* v= (double *) malloc(MAXPART*3*sizeof(double));
+double v[MAXPART][3];
 //  Acceleration
-double* a= (double *) malloc(MAXPART*3*sizeof(double));
+double a[MAXPART][3];
+//  Force
+double F[MAXPART][3];
 
 // atom type
-char atype[2];
+char atype[10];
 //  Function prototypes
 //  initialize positions on simple cubic lattice, also calls function to initialize velocities
 void initialize();
@@ -65,29 +71,26 @@ void initialize();
 double VelocityVerlet(double dt, int iter, FILE *fp);
 //  Compute Force using F = -dV/dr
 //  solve F = ma for use in Velocity Verlet
-// void computeAccelerations();
+void acc_pot_aux();
 //  Numerical Recipes function for generation gaussian distribution
 double gaussdist();
 //  Initialize velocities according to user-supplied initial Temperature (Tinit)
 void initializeVelocities();
-//  Compute total potential energy from particle coordinates
-// double Potential();
 //  Compute mean squared velocity from particle velocities
-// double MeanSquaredVelocity();
+double MeanSquaredVelocity();
 //  Compute total kinetic energy from particle mass and velocities
-// double Kinetic();
-void MeanSquaredVelocityAndKinetic();
-void acc_pot_aux();
-void computeAccelerationsAndPotential();
+double Kinetic();
 
-int main() {
+int main()
+{
     //  variable delcarations
     int i;
     double dt, Vol, Temp, Press, Pavg, Tavg, rho;
     double VolFac, TempFac, PressFac, timefac;
-    double gc, Z;
+    double KE, PE, mvs, gc, Z;
     char prefix[1000], tfn[1000], ofn[1000], afn[1000];
     FILE *tfp, *ofp, *afp;
+
 
     printf("\n  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
     printf("                  WELCOME TO WILLY P CHEM MD!\n");
@@ -121,6 +124,7 @@ int main() {
     //  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     //  Edit these factors to be computed in terms of basic properties in natural units of
     //  the gas being simulated
+
 
     printf("\n  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
     printf("  WHICH NOBLE GAS WOULD YOU LIKE TO SIMULATE? (DEFAULT IS ARGON)\n");
@@ -207,6 +211,7 @@ int main() {
     scanf("%lf",&rho);
 
     Vol = N/(rho*NA);
+
     Vol /= VolFac;
 
     //  Limiting N to MAXPART for practical reasons
@@ -230,7 +235,7 @@ int main() {
     }
     // Vol = L*L*L;
     // Length of the box in natural units:
-    L = cbrt(Vol);
+    L = pow(Vol,(1./3));
 
     //  Files that we can write different quantities to
     tfp = fopen(tfn,"w");     //  The MD trajectory, coordinates of every particle at each timestep
@@ -269,6 +274,7 @@ int main() {
     Pavg = 0;
     Tavg = 0;
 
+
     int tenp = floor(NumTime/10);
     fprintf(ofp,"  time (s)              T(t) (K)              P(t) (Pa)           Kinetic En. (n.u.)     Potential En. (n.u.) Total En. (n.u.)\n");
     printf("  PERCENTAGE OF CALCULATION COMPLETE:\n  [");
@@ -287,6 +293,7 @@ int main() {
         else if (i==10*tenp) printf(" 100 ]\n");
         fflush(stdout);
 
+
         // This updates the positions and velocities using Newton's Laws
         // Also computes the Pressure as the sum of momentum changes from wall collisions / timestep
         // which is a Kinetic Theory of gasses concept of Pressure
@@ -298,14 +305,12 @@ int main() {
         //  Instantaneous mean velocity squared, Temperature, Pressure
         //  Potential, and Kinetic Energy
         //  We would also like to use the IGL to try to see if we can extract the gas constant
-
-        // mvs = MeanSquaredVelocity();
-        // KE = Kinetic();
-        // PE = Potential();
-        MeanSquaredVelocityAndKinetic();
+        KE = Kinetic();
+        mvs = KE / (N * 0.5);
+        PE = Pot;
 
         // Temperature from Kinetic Theory
-        Temp = mvs/3 * TempFac;
+        Temp = m*mvs/(3*kB) * TempFac;
 
         // Instantaneous gas constant and compressibility - not well defined because
         // pressure may be zero in some instances because there will be zero wall collisions,
@@ -364,282 +369,248 @@ void initialize() {
     for (i=0; i<n; i++) {
         for (j=0; j<n; j++) {
             for (k=0; k<n; k++) {
-                if (p<N*3) {
-                    r[p++] = (i + 0.5)*pos;
-                    r[p++] = (j + 0.5)*pos;
-                    r[p++] = (k + 0.5)*pos;
+                if (p<N) {
+
+                    r[p][0] = (i + 0.5)*pos;
+                    r[p][1] = (j + 0.5)*pos;
+                    r[p][2] = (k + 0.5)*pos;
                 }
+                p++;
             }
         }
     }
 
     // Call function to initialize velocities
     initializeVelocities();
+
 }
 
 
-// MeanSquaredVelocity and Kinetic functions merged
-void MeanSquaredVelocityAndKinetic() {
-    double msv, temp, kin = 0., temp1, vk = 0.;
-    int i, j, tempi;
+//  Function to calculate the kinetic energy of the system
+double Kinetic() { //Write Function here!
 
-	for (i=0; i<N; i++) {
-		tempi = i*3;
+    double v2, kin;
 
-        msv = 0.;
-		for (j=0; j<3; j++) {
-            temp = v[tempi + j];
-            temp1 = temp * temp;
-            msv += temp1;
-        }
-        vk += msv;
+    kin =0.;
 
-		kin += msv * 0.5;
+    for (int i=0; i<N; i++) {
+
+        v2 = v[i][0]*v[i][0] + v[i][1]*v[i][1] + v[i][2]*v[i][2];
+
+        kin += m*v2*0.5;
     }
 
-    KE = kin;
-    mvs = vk/N;
+    return kin;
 }
 
 
-__device__
-double atomicAddDouble(double* address, double val) {
-    unsigned long long int* address_as_ull = (unsigned long long int*)address;
-    unsigned long long int old = *address_as_ull, assumed;
-
-    do {
-        assumed = old;
-        old = atomicCAS(address_as_ull, assumed, __double_as_longlong(val + __longlong_as_double(assumed)));
-    } while (assumed != old);
-
-    return __longlong_as_double(old);
-}
-
-
-__global__
-void computeAccelerationsAndPotential(double *r, double *a, double *Pot) {
-    int bid = blockIdx.x;
+__global__ void computeAccelerationsAndPotential(double (*d_r)[3], double (*d_a)[3], double* d_Pot) {
     int tid = threadIdx.x;
+    int bid = blockIdx.x;
     int i = bid * blockDim.x + tid;
 
-    int j, tempi, tempj;
-    double f, x, y, z, rSqd, rSqd3, rSqd6;
+    __shared__ double shared_r[NUM_THREADS_PER_BLOCK][3];
 
-    __shared__ double temp[NUM_THREADS_PER_BLOCK];
+    if (i < N) {
 
-    if(i<N) {
-        temp[tid] = 0;
-        tempi = i*3;
-        a[tempi+0] = 0;
-        a[tempi+1] = 0;
-        a[tempi+2] = 0;
+        for (int k = 0; k < 3; ++k) {
+            shared_r[tid][k] = d_r[i][k];
+        }
 
-        for (j = 0; j < N; j++) {
-            if (j != i) {
-                tempj = j*3;
+        d_Pot[i] = 0;
+
+        double rSqd, rij[3], rSqd3, rSqd6, f;
+        double temp_Pot = 0.0;
+        double temp_d_a[3] = {0.0, 0.0, 0.0};
+
+        for (int j = 0; j < N; j++) {
+
+            if (i != j) {
                 rSqd = 0;
 
-                x = r[tempi] - r[tempj];
-                y = r[tempi+1] - r[tempj+1];
-                z = r[tempi+2] - r[tempj+2];
+                for (int k = 0; k < 3; k++) {
+                    rij[k] = shared_r[tid][k] - d_r[j][k];
+                    rSqd += rij[k] * rij[k];
+                }
 
-                rSqd = x*x + y*y + z*z;
                 rSqd3 = rSqd * rSqd * rSqd;
                 rSqd6 = rSqd3 * rSqd3;
 
-                temp[tid] += 4*((1-rSqd3) / rSqd6);
+                temp_Pot += 4 * ( (1-rSqd3) / rSqd6 );
 
-                if(j > i && i != N-1) {
-                    f = 24*( (2-rSqd3) / (rSqd6*rSqd) );
+                f = 24*( (2-rSqd3) / (rSqd6*rSqd) );
 
-                    atomicAddDouble(&a[tempi], x*f);
-                    atomicAddDouble(&a[tempj], -x*f);
-
-                    atomicAddDouble(&a[tempi+1], y*f);
-                    atomicAddDouble(&a[tempj+1], -y*f);
-
-                    atomicAddDouble(&a[tempi+2], z*f);
-                    atomicAddDouble(&a[tempj+2], -z*f);
+                for (int k = 0; k < 3; k++) {
+                    temp_d_a[k] += rij[k] * f;
                 }
             }
         }
 
-        __syncthreads();
+        d_Pot[i] = temp_Pot;
 
-        // double total = 0.0;
-        // for (int b = 0; b < gridDim.x; b++) {
-        //     int global_tid = b * blockDim.x + threadIdx.x;
-
-        //     // Acesse o array Pot usando o ID global da thread
-        //     if (global_tid < NUM_THREADS_PER_BLOCK) {
-        //         total += Pot[global_tid];
-        //     }
-        //     __syncthreads();
-        // }
-
-        // *d_PE = total;
-
-        // Realizando a redução em uma árvore binária
-        // for(unsigned int stride = blockDim.x / 2; stride > 0; stride /= 2) {
-        //     if (threadIdx.x < stride) {
-        //         Pot[threadIdx.x] += Pot[threadIdx.x + stride];
-        //     }
-        //     __syncthreads();
-        // }
-
-        // // Armazenamento da soma total no vetor d_PE
-        // if(threadIdx.x == 0) {
-        //    atomicAddDouble(d_PE, Pot[0]);
-        // }
-
-        // Reduzindo os valores de Pot[0] a Pot[NUM_THREADS_PER_BLOCK-1]
-        for(unsigned int stride = blockDim.x / 2; stride > 0; stride >>= 2) {
-            if (tid < stride && (tid + stride) < blockDim.x) {
-                temp[tid] += temp[tid + stride];
-            }
-            __syncthreads();
-        }
-
-        // Armazenamento da soma total no vetor d_PE
-        if(tid == 0) {
-           Pot[bid] = temp[0];
+        for (int k = 0; k < 3; k++) {
+            d_a[i][k] = temp_d_a[k];
         }
     }
 }
 
 
+// void acc_pot_aux() {
+//     int bytes = N * 3 * sizeof(double);
+
+//     double res_Pot[N];
+//     double (*d_a)[3];
+//     double (*d_r)[3];
+//     double *d_Pot;
+
+//     for (int i = 0; i < N; i++) {
+//         a[i][0] = a[i][1] = a[i][2] = 0;
+//     }
+
+//     Pot = 0.0;
+
+//     cudaMalloc((void**)&d_a, bytes);
+//     cudaMalloc((void**)&d_r, bytes);
+//     cudaMalloc((void**)&d_Pot, N * sizeof(double));
+//     checkCUDAError("allocations");
+
+//     // cudaMemset(d_a, 0, bytes);
+//     cudaMemcpy(d_a, a, bytes, cudaMemcpyHostToDevice);
+//     checkCUDAError("memSet a 0");
+
+//     cudaMemcpy(d_r, r, bytes, cudaMemcpyHostToDevice);
+//     checkCUDAError("memcopy r (HostToDevice)");
+
+//     computeAccelerationsAndPotential<<<NUM_BLOCKS, NUM_THREADS_PER_BLOCK>>>(d_r, d_a, d_Pot);
+//     checkCUDAError("computeAccAndPotential");
+
+//     cudaMemcpy(a, d_a, bytes, cudaMemcpyDeviceToHost);
+//     checkCUDAError("memcopy d_a (DeviceToHost)");
+
+//     cudaMemcpy(res_Pot, d_Pot, N * sizeof(double), cudaMemcpyDeviceToHost);
+
+//     double total = 0.0;
+//     for (int i = 0; i < N; i++)
+//         total += res_Pot[i];
+
+//     cudaFree(d_a);
+//     cudaFree(d_r);
+//     cudaFree(d_Pot);
+//     checkCUDAError("cudaFree's");
+// }
+
 void acc_pot_aux() {
-    double *d_r, *d_a, *d_Pot;
+    int bytes = N * 3 * sizeof(double);
 
-    double *res;
-    res = (double *) malloc(100 * sizeof(double));
+    double res_Pot[N];
+    double (*d_a)[3];
+    double (*d_r)[3];
+    double *d_Pot;
 
-    cudaMalloc((void**)&d_r, N*3 * sizeof(double));
-    cudaMalloc((void**)&d_a, N*3 * sizeof(double));
-    cudaMalloc((void**)&d_Pot, sizeof(double) * 100);
-    checkCUDAError("allocations");
+    for (int i = 0; i < N; i++)
+        a[i][0] = a[i][1] = a[i][2] = 0;
 
-    // NUM_BLOCKS = N / NUM_THREADS_PER_BLOCK + 1;
-    // NUM_BLOCKS = (N + NUM_THREADS_PER_BLOCK - 1)/NUM_THREADS_PER_BLOCK;
-    // NUM_BLOCKS = 100;
+    Pot = 0.0;
 
-    cudaMemcpy(d_r, r, 3 * N * sizeof(double), cudaMemcpyHostToDevice);
-    checkCUDAError("memcopy r (HostToDevice)");
+    cudaMalloc((void**)&d_a, bytes);
+    cudaMalloc((void**)&d_r, bytes);
+    cudaMalloc((void**)&d_Pot, N * sizeof(double));
 
-    cudaMemcpy(d_a, a, 3 * N * sizeof(double), cudaMemcpyHostToDevice);
-    checkCUDAError("memcopy a (HostToDevice)");
-    // cudaMemset(d_a, 0, sizeof(double) * N * 3);
-    // cudaMemcpy(d_PE, &PE, sizeof(double), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_a, a, bytes, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_r, r, bytes, cudaMemcpyHostToDevice);
 
     computeAccelerationsAndPotential<<<NUM_BLOCKS, NUM_THREADS_PER_BLOCK>>>(d_r, d_a, d_Pot);
-    checkCUDAError("computeAccAndPotential");
 
-    // copiar os resultados para o CPU (host)
-    cudaMemcpy(a, d_a, 3 * N * sizeof(double), cudaMemcpyDeviceToHost);
-    checkCUDAError("memcopy d_a (DeviceToHost)");
+    cudaMemcpy(a, d_a, bytes, cudaMemcpyDeviceToHost);
+    cudaMemcpy(res_Pot, d_Pot, N * sizeof(double), cudaMemcpyDeviceToHost);
 
-    cudaMemcpy(res, d_Pot, sizeof(double) * 100, cudaMemcpyDeviceToHost);
-    checkCUDAError("memcopy d_Pot (DeviceToHost)");
+    for (int i = 0; i < N; i++)
+        Pot += res_Pot[i];
 
-    // free memory on the GPU
-    cudaFree(d_r);
     cudaFree(d_a);
+    cudaFree(d_r);
     cudaFree(d_Pot);
-    checkCUDAError("cudaFree's");
-
-    PE = 0;
-    for (int i = 0; i < NUM_BLOCKS; i++) {
-        PE += res[i];
-    }
-
-    free(res);
 }
 
 
 // returns sum of dv/dt*m/A (aka Pressure) from elastic collisions with walls
 double VelocityVerlet(double dt, int iter, FILE *fp) {
-    int i, j, tempi;
-    double psum = 0.,temp, aux;
+    int i, j;
+    double h_dt = dt*0.5;
+    double psum = 0.;
 
+    double* result = (double*)malloc(2*sizeof(double));
+    double vij[3];
 
     for (i=0; i<N; i++) {
-        tempi=i*3;
-        for (j=0; j<3; j++) {
-            aux = a[tempi+j]*half_dt;
-            r[tempi+j] += (v[tempi+j]+aux)*dt; //changed
-            v[tempi+j] += aux;
-        }
+        for(int k=0;k<3;k++)
+            vij[k]=a[i][k]*h_dt;
+
+        for(int k=0;k<3;k++)
+            r[i][k]+=v[i][k]*dt+vij[k]*dt;
+
+        for(int k=0;k<3;k++)
+            v[i][k]+=vij[k];
+
     }
 
-    // //  Update accellerations from updated positions
+    //  Update accellerations from updated positions
     acc_pot_aux();
 
     //  Update velocity with updated acceleration
     for (i=0; i<N; i++) {
-        if (i != N) {
-            tempi = i*3;
-            v[tempi] += a[tempi]*half_dt;
-            v[tempi + 1] += a[tempi + 1]*half_dt;
-            v[tempi + 2] += a[tempi + 2]*half_dt;
-        }
+        v[i][0] += a[i][0]*h_dt;
+        v[i][1] += a[i][1]*h_dt;
+        v[i][2] += a[i][2]*h_dt;
     }
 
     // Elastic walls
     for (i=0; i<N; i++) {
-        tempi=i*3;
         for (j=0; j<3; j++) {
-            temp = r[tempi+j];
-            if (temp < 0.) {
-                v[tempi+j] *=-1.; //- elastic walls
-                psum += fabs(v[tempi+j]);  // contribution to pressure from "left" walls
+            if (r[i][j]<0.) {
+                v[i][j] *=-1.; //- elastic walls
+                psum += m*fabs(v[i][j]);  // contribution to pressure from "left" walls
             }
-            if (temp >= L) {
-                v[tempi+j]*=-1.;  //- elastic walls
-                psum += fabs(v[tempi+j]);  // contribution to pressure from "right" walls
+            if (r[i][j]>=L) {
+                v[i][j]*=-1.;  //- elastic walls
+                psum += m*fabs(v[i][j]);  // contribution to pressure from "right" walls
             }
         }
     }
 
-    return psum/three_dt;
+    return psum/(6*L*L*h_dt);
 }
 
 
 void initializeVelocities() {
-    int i, j, tempi;
+    int i, j;
     double vCM[3] = {0, 0, 0};
-    double temp, lambda, vSqdSum=0.;
+    double lambda, vSqdSum = 0.0;
 
     for (i=0; i<N; i++) {
-        tempi = i*3;
         for (j=0; j<3; j++) {
             //  Pull a number from a Gaussian Distribution
-            v[tempi + j] = gaussdist();
-            vCM[j] += v[tempi+j];
+            v[i][j] = gaussdist();
+
+            vCM[j] += m*v[i][j];
         }
     }
 
-    vCM[0] /= N;
-    vCM[1] /= N;
-    vCM[2] /= N;
+    for (i=0; i<3; i++) vCM[i] /= N*m;
 
     for (i=0; i<N; i++) {
-        tempi = i*3;
         for (j=0; j<3; j++) {
-            v[tempi + j] -= vCM[j];
+            v[i][j] -= vCM[j];
 
-            temp = v[tempi + j];
-            vSqdSum += temp * temp;
+            vSqdSum += v[i][j]*v[i][j];
         }
     }
 
-    lambda = sqrt(3*(N-1)*Tinit/vSqdSum);
+    lambda = sqrt( 3*(N-1)*Tinit/vSqdSum);
 
     for (i=0; i<N; i++) {
-        if (i != N) {
-            tempi = i*3;
-            v[tempi] *= lambda;
-            v[tempi + 1] *= lambda;
-            v[tempi + 2] *= lambda;
+        for (j=0; j<3; j++) {
+            v[i][j] *= lambda;
         }
     }
 }

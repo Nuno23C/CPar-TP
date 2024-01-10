@@ -1,17 +1,10 @@
-################################################################################
-# Makefile for general code snippets
-#
-# by André Pereira
-################################################################################
-
 SHELL = /bin/sh
 BIN_NAME = MDcuda
 
 CXX = nvcc
 LD  = nvcc
 
-CXXFLAGS   = -O2 -g -std=c++11 -arch=sm_35 -Wno-deprecated-gpu-targets
-
+CXXFLAGS = -O2 -g -std=c++11 -arch=sm_35 -Wno-deprecated-gpu-targets
 
 SRC_DIR = src
 BIN_DIR = bin
@@ -22,10 +15,6 @@ BIN = $(BIN_NAME)
 
 vpath %.cu $(SRC_DIR)
 
-################################################################################
-# Rules
-################################################################################
-
 .DEFAULT_GOAL = all
 
 $(BUILD_DIR)/%.o: %.cu
@@ -33,9 +22,6 @@ $(BUILD_DIR)/%.o: %.cu
 
 $(BIN_DIR)/$(BIN_NAME): $(OBJ)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $(OBJ) $(LIBS)
-
-modules: module load gcc/7.2.0;\
-	module load cuda/11.3.1
 
 checkdirs:
 	@mkdir -p $(BUILD_DIR)
